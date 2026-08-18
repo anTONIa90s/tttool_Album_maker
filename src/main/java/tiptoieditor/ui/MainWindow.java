@@ -19,6 +19,7 @@ public class MainWindow {
 
     private TextArea outputArea;
     private Label selectedAudioFolderLabel;
+    private Label selectedAlbumFolderLabel;
     private Label selectedYamlFileLabel;
     private Label statusLabel;
     private Button selectYamlFileButton;
@@ -45,6 +46,14 @@ public class MainWindow {
         productNameField = new TextField();
         productNameField.setPromptText("Album name (default: tttoolAlbum)");
 
+        productIdField = new TextField();
+        productIdField.setTextFormatter(
+                new TextFormatter<>(change -> change.getControlNewText().matches("\\d*") ? change : null));
+        productIdField.setPrefColumnCount(4);
+        productIdField.setPromptText("Enter Product ID");
+
+        HBox RowInput = new HBox(10, productNameField, productIdField);
+
         // --- Convert Audio ---
         Button selectAudioFolderButton = new Button("Select Audio Folder");
         selectedAudioFolderLabel = new Label("No folder selected");
@@ -55,16 +64,10 @@ public class MainWindow {
 
         // --- Create Yaml ---
         Button selectAlbumFolderButton = new Button("Select Album Folder");
-        Label selectedAlbumFolderLabel = new Label("No folder selected");
-        productIdField = new TextField();
-        productIdField.setTextFormatter(
-                new TextFormatter<>(change -> change.getControlNewText().matches("\\d*") ? change : null));
-        productIdField.setPrefColumnCount(4);
-        productIdField.setPromptText("Enter Product ID");
+        selectedAlbumFolderLabel = new Label("No folder selected");
         Button runCreateYamlButton = new Button("Create Yaml");
         Label statusCreateYamlLabel = new Label("");
         HBox RowCreateYaml = new HBox(10, selectAlbumFolderButton, selectedAlbumFolderLabel,
-                productIdField,
                 runCreateYamlButton,
                 statusCreateYamlLabel);
 
@@ -81,7 +84,7 @@ public class MainWindow {
         HBox runRow = new HBox(10, runButton, statusLabel);
 
         // Stack buttons vertically
-        VBox buttonBox = new VBox(10, productNameField, RowConvertAudio, RowCreateYaml, RowYamlToGme, runRow);
+        VBox buttonBox = new VBox(10, RowInput, RowConvertAudio, RowCreateYaml, RowYamlToGme, runRow);
 
         // --- Output / Logger ---
         outputArea = new TextArea();
@@ -136,6 +139,8 @@ public class MainWindow {
         stage.setTitle("TTTool GUI");
         stage.setScene(scene);
         stage.show();
+
+        javafx.application.Platform.runLater(root::requestFocus);
     }
 
     private void loadYamlFile(Stage stage) {
@@ -206,12 +211,17 @@ public class MainWindow {
     }
 
     private void runToolCopyAndConvert() {
+        runToolCopyAndConvert(null);
+    }
+
+    private void runToolCopyAndConvert(java.util.function.Consumer<File> onComplete) {
         if (selectedAudioFolder == null) {
             statusLabel.setText("Please select a folder first.");
             log("Please select a folder first.");
             return;
         }
 
+        File sourceAudioFolder = selectedAudioFolder;
         String albumName = productNameField.getText();
         String resolvedAlbumName = albumName == null || albumName.isBlank() ? "tttoolAlbum" : albumName.trim();
 
@@ -220,13 +230,13 @@ public class MainWindow {
 
         new Thread(() -> {
             // Step 1: copy files
-            File audioFolder = audioCopyService.prepareAudioFolder(selectedAudioFolder, resolvedAlbumName);
+            File audioFolder = audioCopyService.prepareAudioFolder(sourceAudioFolder, resolvedAlbumName);
             log("Audio copied to: " + audioFolder.getAbsolutePath());
-            statusLabel.setText("Audio copied.");
+            javafx.application.Platform.runLater(() -> statusLabel.setText("Audio copied."));
 
             // Step 2: process audio
             log("Processing audio...");
-            statusLabel.setText("Processing audio...");
+            javafx.application.Platform.runLater(() -> statusLabel.setText("Processing audio..."));
             audioConvertService.processFolder(audioFolder);
 
             // done
@@ -234,20 +244,23 @@ public class MainWindow {
                 statusLabel.setText("✅ Done!");
             });
             log("Done.");
+            if (onComplete != null) {
+                javafx.application.Platform.runLater(() -> onComplete.accept(audioFolder));
+            }
         }).start();
 
     }
 
-    private void runToolCreateYaml() {
+    private boolean runToolCreateYaml() {
         String productIdText = productIdField.getText().trim();
         if (productIdText.isEmpty()) {
             statusLabel.setText("Please enter a product ID.");
             log("Please enter a product ID.");
-            return;
+            return false;
         } else if (selectedAlbumFolder == null) {
             statusLabel.setText("Please select a folder first.");
             log("Please select a folder first.");
-            return;
+            return false;
         }
 
         try {
@@ -259,16 +272,34 @@ public class MainWindow {
             selectedYamlFileLabel.setText(selectedYamlFile.getName());
             statusLabel.setText("YAML created.");
             log("YAML created: " + selectedYamlFile.getAbsolutePath());
+            return true;
         } catch (Exception e) {
             statusLabel.setText("Could not create YAML.");
             log("Could not create YAML: " + e.getMessage());
+            return false;
         }
     }
 
     private void runTool() {
+        runToolCopyAndConvert(audioFolder -> {
+            // The YAML generator needs the album directory that contains the
+            // newly created "audio" folder.
+            selectedAlbumFolder = audioFolder.getParentFile();
+            selectedAlbumFolderLabel.setText(selectedAlbumFolder.getName());
+            log("Selected album folder: " + selectedAlbumFolder.getAbsolutePath());
+
+            if (runToolCreateYaml()) {
+                runToolCreateGmeFromYaml();
+            }
+        });
     }
 
     private void log(String message) {
-        outputArea.appendText(message + "\n");
+        Runnable appendMessage = () -> outputArea.appendText(message + "\n");
+        if (javafx.application.Platform.isFxApplicationThread()) {
+            appendMessage.run();
+        } else {
+            javafx.application.Platform.runLater(appendMessage);
+        }
     }
 }
