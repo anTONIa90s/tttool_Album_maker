@@ -9,24 +9,32 @@ import javafx.stage.FileChooser;
 import javafx.stage.Stage;
 import service.audio.AudioConvertService;
 import service.audio.AudioCopyService;
+import service.audio.AudioFileNameService;
 import service.tttool.TttoolService;
+import service.yaml.GenerateYamlService;
 
 import java.io.File;
 
 public class MainWindow {
 
     private TextArea outputArea;
-    private Label selectedFolderLabel;
+    private Label selectedAudioFolderLabel;
     private Label selectedYamlFileLabel;
     private Label statusLabel;
+    private Button selectYamlFileButton;
 
     private File selectedFolder;
+    private File selectedAudioFolder;
+    private File selectedAlbumFolder;
+    private TextField productNameField;
+    private TextField productIdField;
     private File selectedYamlFile;
 
     private final TttoolService tttoolService = new TttoolService();
 
     private final AudioCopyService audioCopyService = new AudioCopyService();
     private final AudioConvertService audioConvertService = new AudioConvertService();
+    private final AudioFileNameService audioFileNameService = new AudioFileNameService();
 
     public void show(Stage stage) {
 
@@ -34,15 +42,38 @@ public class MainWindow {
         Label title = new Label("TTTool GUI");
         title.setStyle("-fx-font-size: 18px; -fx-font-weight: bold;");
 
-        // --- Select Folder button + folder label ---
-        Button selectFolderButton = new Button("Select Folder");
-        selectedFolderLabel = new Label("No folder selected");
-        HBox loadRow = new HBox(10, selectFolderButton, selectedFolderLabel);
+        productNameField = new TextField();
+        productNameField.setPromptText("Album name (default: tttoolAlbum)");
 
-        // --- Select File button + folder label ---
-        Button selectYamlFileButton = new Button("Select yaml file");
+        // --- Convert Audio ---
+        Button selectAudioFolderButton = new Button("Select Audio Folder");
+        selectedAudioFolderLabel = new Label("No folder selected");
+        Button runConvertButton = new Button("Convert Audio");
+        Label statusConvertLabel = new Label("");
+        HBox RowConvertAudio = new HBox(10, selectAudioFolderButton, selectedAudioFolderLabel, runConvertButton,
+                statusConvertLabel);
+
+        // --- Create Yaml ---
+        Button selectAlbumFolderButton = new Button("Select Album Folder");
+        Label selectedAlbumFolderLabel = new Label("No folder selected");
+        productIdField = new TextField();
+        productIdField.setTextFormatter(
+                new TextFormatter<>(change -> change.getControlNewText().matches("\\d*") ? change : null));
+        productIdField.setPrefColumnCount(4);
+        productIdField.setPromptText("Enter Product ID");
+        Button runCreateYamlButton = new Button("Create Yaml");
+        Label statusCreateYamlLabel = new Label("");
+        HBox RowCreateYaml = new HBox(10, selectAlbumFolderButton, selectedAlbumFolderLabel,
+                productIdField,
+                runCreateYamlButton,
+                statusCreateYamlLabel);
+
+        // --- Convert Yaml to Gme ---
+        selectYamlFileButton = new Button("Select yaml file");
         selectedYamlFileLabel = new Label("No YAML file selected");
-        HBox loadRowYaml = new HBox(10, selectYamlFileButton, selectedYamlFileLabel);
+        Button runGmeButton = new Button("Create GME");
+        Label statusGmeLabel = new Label("");
+        HBox RowYamlToGme = new HBox(10, selectYamlFileButton, selectedYamlFileLabel, runGmeButton, statusGmeLabel);
 
         // --- Run button ---
         Button runButton = new Button("Run tttool");
@@ -50,7 +81,7 @@ public class MainWindow {
         HBox runRow = new HBox(10, runButton, statusLabel);
 
         // Stack buttons vertically
-        VBox buttonBox = new VBox(10, loadRow, loadRowYaml, runRow);
+        VBox buttonBox = new VBox(10, productNameField, RowConvertAudio, RowCreateYaml, RowYamlToGme, runRow);
 
         // --- Output / Logger ---
         outputArea = new TextArea();
@@ -76,10 +107,29 @@ public class MainWindow {
 
         // --- Actions ---
 
-        selectFolderButton.setOnAction(e -> loadFolder(stage));
+        selectAudioFolderButton.setOnAction(e -> {
+            File folder = loadFolder(stage, selectedAudioFolder);
+            if (folder != null) {
+                selectedAudioFolder = folder;
+                selectedAudioFolderLabel.setText(folder.getName());
+                statusLabel.setText("");
+                log("Selected audio folder: " + folder.getAbsolutePath());
+            }
+        });
+        selectAlbumFolderButton.setOnAction(e -> {
+            File folder = loadFolder(stage, selectedAlbumFolder);
+            if (folder != null) {
+                selectedAlbumFolder = folder;
+                selectedAlbumFolderLabel.setText(folder.getName());
+                statusLabel.setText("");
+                log("Selected album folder: " + folder.getAbsolutePath());
+            }
+        });
         selectYamlFileButton.setOnAction(e -> loadYamlFile(stage));
-        // runButton.setOnAction(e -> runToolCreateGmeFromYaml());
-        runButton.setOnAction(e -> runToolCopyAndConvert());
+        runButton.setOnAction(e -> runTool());
+        runConvertButton.setOnAction(e -> runToolCopyAndConvert());
+        runCreateYamlButton.setOnAction(e -> runToolCreateYaml());
+        runGmeButton.setOnAction(e -> runToolCreateGmeFromYaml());
 
         // --- Scene ---
         Scene scene = new Scene(root, 500, 350);
@@ -113,26 +163,17 @@ public class MainWindow {
         }
     }
 
-    private void loadFolder(Stage stage) {
+    private File loadFolder(Stage stage, File currentFolder) {
         DirectoryChooser directoryChooser = new DirectoryChooser();
         directoryChooser.setTitle("Select Folder");
 
         // start folder search at former parent-directory
-        if (selectedFolder != null && selectedFolder.exists()) {
-            directoryChooser.setInitialDirectory(selectedFolder.getParentFile());
+        if (currentFolder != null && currentFolder.exists()) {
+            File parentFolder = currentFolder.getParentFile();
+            directoryChooser.setInitialDirectory(parentFolder != null ? parentFolder : currentFolder);
         }
 
-        File folder = directoryChooser.showDialog(stage);
-
-        if (folder != null) {
-            selectedFolder = folder;
-
-            // show folder name next to button
-            selectedFolderLabel.setText(folder.getName());
-            statusLabel.setText("");
-
-            log("Selected folder: " + folder.getAbsolutePath());
-        }
+        return directoryChooser.showDialog(stage);
     }
 
     private void runToolCreateGmeFromYaml() {
@@ -141,32 +182,45 @@ public class MainWindow {
             log("Please select a YAML file first.");
             return;
         }
-        log("Processing folder: " + selectedYamlFile.getAbsolutePath());
+        File yamlFile = selectedYamlFile;
+        log("Creating GME from: " + yamlFile.getAbsolutePath());
+        statusLabel.setText("Creating GME...");
 
-        try {
-
-            String output = tttoolService.assemble(selectedYamlFile.toPath());
-
-            System.out.println(output);
-
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
+        new Thread(() -> {
+            try {
+                File audioFolder = yamlFile.toPath().getParent().resolve("audio").toFile();
+                audioFileNameService.renameFiles(audioFolder);
+                log("Audio files renamed in: " + audioFolder.getAbsolutePath());
+                String output = tttoolService.assemble(yamlFile.toPath());
+                javafx.application.Platform.runLater(() -> {
+                    log(output.isBlank() ? "tttool finished successfully." : output);
+                    statusLabel.setText("GME created.");
+                });
+            } catch (Exception e) {
+                javafx.application.Platform.runLater(() -> {
+                    log("Could not create GME: " + e.getMessage());
+                    statusLabel.setText("Could not create GME.");
+                });
+            }
+        }, "tttool-assemble").start();
     }
 
     private void runToolCopyAndConvert() {
-        if (selectedFolder == null) {
+        if (selectedAudioFolder == null) {
             statusLabel.setText("Please select a folder first.");
             log("Please select a folder first.");
             return;
         }
 
-        log("Preparing folder structure...");
+        String albumName = productNameField.getText();
+        String resolvedAlbumName = albumName == null || albumName.isBlank() ? "tttoolAlbum" : albumName.trim();
+
+        log("Preparing folder structure for album: " + resolvedAlbumName);
         statusLabel.setText("⏳ Processing...");
 
         new Thread(() -> {
             // Step 1: copy files
-            File audioFolder = audioCopyService.prepareAudioFolder(selectedFolder);
+            File audioFolder = audioCopyService.prepareAudioFolder(selectedAudioFolder, resolvedAlbumName);
             log("Audio copied to: " + audioFolder.getAbsolutePath());
             statusLabel.setText("Audio copied.");
 
@@ -182,6 +236,36 @@ public class MainWindow {
             log("Done.");
         }).start();
 
+    }
+
+    private void runToolCreateYaml() {
+        String productIdText = productIdField.getText().trim();
+        if (productIdText.isEmpty()) {
+            statusLabel.setText("Please enter a product ID.");
+            log("Please enter a product ID.");
+            return;
+        } else if (selectedAlbumFolder == null) {
+            statusLabel.setText("Please select a folder first.");
+            log("Please select a folder first.");
+            return;
+        }
+
+        try {
+            statusLabel.setText("creating YAML...");
+            log("creating YAML...");
+            GenerateYamlService.GeneratedYamlFiles generatedFiles = new GenerateYamlService()
+                    .generate(Integer.parseInt(productIdText), selectedAlbumFolder);
+            selectedYamlFile = generatedFiles.yamlFile().toFile();
+            selectedYamlFileLabel.setText(selectedYamlFile.getName());
+            statusLabel.setText("YAML created.");
+            log("YAML created: " + selectedYamlFile.getAbsolutePath());
+        } catch (Exception e) {
+            statusLabel.setText("Could not create YAML.");
+            log("Could not create YAML: " + e.getMessage());
+        }
+    }
+
+    private void runTool() {
     }
 
     private void log(String message) {
