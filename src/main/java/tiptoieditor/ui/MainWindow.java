@@ -33,7 +33,7 @@ public class MainWindow {
 
     private final TttoolService tttoolService = new TttoolService();
     private final AudioCopyService audioCopyService = new AudioCopyService();
-    private final AudioConvertService audioConvertService = new AudioConvertService();
+    private final AudioConvertService audioConvertService = new AudioConvertService(this::log);
     private final AudioFileNameService audioFileNameService = new AudioFileNameService();
 
     public void show(Stage stage) {
@@ -46,10 +46,11 @@ public class MainWindow {
         productIdField = new TextField();
         productIdField.setTextFormatter(
                 new TextFormatter<>(change -> change.getControlNewText().matches("\\d*") ? change : null));
-        productIdField.setPrefColumnCount(4);
+        productIdField.setPrefColumnCount(5);
         productIdField.setPromptText("Enter Product ID");
 
-        HBox rowInput = new HBox(10, productNameField, productIdField);
+        Button selectDirectoryButton = new Button("Select Directory");
+        HBox rowInput = new HBox(10, selectDirectoryButton, productNameField, productIdField);
         rowInput.setMaxWidth(Double.MAX_VALUE);
         HBox.setHgrow(productNameField, Priority.ALWAYS);
 
@@ -74,6 +75,9 @@ public class MainWindow {
         rowConvertAudio = new RowConvertAudio(stage, selectAudioFolderButton, selectedAudioFolderLabel,
                 convertAudioButton, audioCopyService, audioConvertService,
                 productNameField::getText, this::log);
+        selectedAudioFolderLabel.textProperty().addListener((observable, oldValue, newValue) ->
+                productNameField.setText(newValue));
+        selectDirectoryButton.setOnAction(e -> rowConvertAudio.selectAudioFolder(stage));
         rowYamlToGme = new RowYamlToGme(stage, selectYamlFileButton, selectedYamlFileLabel,
                 createGmeButton, tttoolService, audioFileNameService, this::log);
         rowCreateYaml = new RowCreateYaml(stage, selectAlbumFolderButton, selectedAlbumFolderLabel,

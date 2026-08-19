@@ -4,8 +4,15 @@ import java.io.BufferedReader;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStreamReader;
+import java.util.function.Consumer;
 
 public class AudioConvertService {
+
+    private final Consumer<String> logger;
+
+    public AudioConvertService(Consumer<String> logger) {
+        this.logger = logger;
+    }
 
     public void processFolder(File folder) {
         File[] files = folder.listFiles();
@@ -20,16 +27,20 @@ public class AudioConvertService {
 
                 if (name.endsWith(".mp3")) {
                     System.out.println("MP3 OK: " + file.getName());
+                    logger.accept("MP3 OK: " + file.getName());
                 }
 
                 if (name.endsWith(".ogg")) {
                     System.out.println("Checking OGG: " + file.getName());
+                    logger.accept("Checking OGG: " + file.getName());
 
                     if (needsConversion(file)) {
                         System.out.println(" → Needs conversion");
+                        logger.accept(" → Needs conversion");
                         convertOgg(file);
                     } else {
                         System.out.println(" → Already OK");
+                        logger.accept(" → Already OK");
                     }
                 }
 
@@ -84,6 +95,7 @@ public class AudioConvertService {
 
         } catch (Exception e) {
             e.printStackTrace();
+            logger.accept("Could not inspect audio file " + file.getName() + ": " + e.getMessage());
             return true; // fallback → convert
         }
     }
@@ -117,23 +129,28 @@ public class AudioConvertService {
                 // ✅ replace original file
                 if (!file.delete()) {
                     System.out.println("Failed to delete original: " + file.getName());
+                    logger.accept("Failed to delete original: " + file.getName());
                     return;
                 }
 
                 if (!tempFile.renameTo(file)) {
                     System.out.println("Failed to rename temp file: " + file.getName());
+                    logger.accept("Failed to rename temp file: " + file.getName());
                     return;
                 }
 
                 System.out.println("Replaced: " + file.getName());
+                logger.accept("Replaced: " + file.getName());
 
             } else {
                 System.out.println("Conversion failed: " + file.getName());
+                logger.accept("Conversion failed: " + file.getName());
                 tempFile.delete();
             }
 
         } catch (Exception e) {
             e.printStackTrace();
+            logger.accept("Could not convert audio file " + file.getName() + ": " + e.getMessage());
         }
     }
 }

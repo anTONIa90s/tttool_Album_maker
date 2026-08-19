@@ -24,8 +24,8 @@ public class RowConvertAudio {
     private File selectedAudioFolder;
 
     public RowConvertAudio(Stage stage, Button selectAudioFolderButton, Label selectedAudioFolderLabel,
-                           Button convertButton, AudioCopyService audioCopyService,
-                           AudioConvertService audioConvertService, Supplier<String> albumNameSupplier, Consumer<String> logger) {
+            Button convertButton, AudioCopyService audioCopyService,
+            AudioConvertService audioConvertService, Supplier<String> albumNameSupplier, Consumer<String> logger) {
         this.selectedAudioFolderLabel = selectedAudioFolderLabel;
         this.audioCopyService = audioCopyService;
         this.audioConvertService = audioConvertService;
@@ -35,7 +35,7 @@ public class RowConvertAudio {
         convertButton.setOnAction(e -> runToolCopyAndConvert());
     }
 
-    private void selectAudioFolder(Stage stage) {
+    public void selectAudioFolder(Stage stage) {
         File folder = FolderSelectionDialog.chooseFolder(stage, selectedAudioFolder);
         if (folder != null) {
             setSelectedAudioFolder(folder);
@@ -66,7 +66,7 @@ public class RowConvertAudio {
             logger.accept("Processing audio...");
             audioConvertService.processFolder(audioFolder);
 
-            logger.accept("Done.");
+            logger.accept("Audio successfully processed.");
             if (onComplete != null) {
                 Platform.runLater(() -> onComplete.accept(audioFolder));
             }
