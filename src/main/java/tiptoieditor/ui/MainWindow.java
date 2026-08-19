@@ -17,6 +17,7 @@ import javafx.stage.Stage;
 import service.audio.AudioConvertService;
 import service.audio.AudioCopyService;
 import service.audio.AudioFileNameService;
+import service.tonie.TonieAudioExportService;
 import service.tttool.TttoolService;
 
 import java.io.File;
@@ -35,6 +36,7 @@ public class MainWindow {
     private final AudioCopyService audioCopyService = new AudioCopyService();
     private final AudioConvertService audioConvertService = new AudioConvertService(this::log);
     private final AudioFileNameService audioFileNameService = new AudioFileNameService();
+    private final TonieAudioExportService tonieAudioExportService = new TonieAudioExportService();
 
     public void show(Stage stage) {
         Label title = new Label("TTTool GUI");
@@ -72,6 +74,10 @@ public class MainWindow {
         Label selectedYamlFileLabel = new Label("No YAML file selected");
         Button createGmeButton = new Button("Create GME");
 
+        Button selectTonieFileButton = new Button("Select Tonie File");
+        Label selectedTonieFileLabel = new Label("No file selected");
+        Button exportTonieAudioButton = new Button("Export OGG");
+
         rowConvertAudio = new RowConvertAudio(stage, selectAudioFolderButton, selectedAudioFolderLabel,
                 convertAudioButton, audioCopyService, audioConvertService,
                 productNameField::getText, this::log);
@@ -83,6 +89,8 @@ public class MainWindow {
         rowCreateYaml = new RowCreateYaml(stage, selectAlbumFolderButton, selectedAlbumFolderLabel,
                 createYamlButton, productIdField::getText,
                 rowYamlToGme::setSelectedYamlFile, this::log);
+        new RowExportTonieAudio(stage, selectTonieFileButton, selectedTonieFileLabel,
+                exportTonieAudioButton, tonieAudioExportService, productNameField::getText, this::log);
 
         ExpandableSubActions prepAudioPane = new ExpandableSubActions(
                 "Only prep audio", selectAudioFolderButton, selectedAudioFolderLabel,
@@ -93,7 +101,10 @@ public class MainWindow {
         ExpandableSubActions createGmePane = new ExpandableSubActions(
                 "Only create GME", selectYamlFileButton, selectedYamlFileLabel,
                 createGmeButton);
-        Accordion workflowPanes = new Accordion(prepAudioPane, createYamlPane, createGmePane);
+        ExpandableSubActions exportToniePane = new ExpandableSubActions(
+                "Export Tonie audio", selectTonieFileButton, selectedTonieFileLabel,
+                exportTonieAudioButton);
+        Accordion workflowPanes = new Accordion(prepAudioPane, createYamlPane, createGmePane, exportToniePane);
 
         VBox buttonBox = new VBox(10, rowInput, runRow, workflowPanes);
 
