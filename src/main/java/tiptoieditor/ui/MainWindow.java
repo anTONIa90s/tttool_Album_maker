@@ -2,9 +2,13 @@ package tiptoieditor.ui;
 
 import javafx.geometry.Insets;
 import javafx.scene.Scene;
+import javafx.collections.FXCollections;
+import javafx.collections.ObservableList;
 import javafx.scene.control.Accordion;
 import javafx.scene.control.Button;
 import javafx.scene.control.Label;
+import javafx.scene.control.TableColumn;
+import javafx.scene.control.TableView;
 import javafx.scene.control.TextArea;
 import javafx.scene.control.TextField;
 import javafx.scene.control.TextFormatter;
@@ -14,6 +18,8 @@ import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.VBox;
 import javafx.stage.Stage;
+import javafx.beans.property.SimpleIntegerProperty;
+import javafx.beans.property.SimpleStringProperty;
 import service.audio.AudioConvertService;
 import service.audio.AudioCopyService;
 import service.audio.AudioFileNameService;
@@ -81,6 +87,8 @@ public class MainWindow {
         Button selectGmeFolderButton = new Button("Select GME Folder");
         Label selectedGmeFolderLabel = new Label("No folder selected");
         Button listGmeProductIdsButton = new Button("List Product IDs");
+        ObservableList<RowListGmeProductIds.ProductIdTableRow> productIdRows = FXCollections.observableArrayList();
+        TableView<RowListGmeProductIds.ProductIdTableRow> productIdTable = createProductIdTable(productIdRows);
 
         rowConvertAudio = new RowConvertAudio(stage, selectAudioFolderButton, selectedAudioFolderLabel,
                 convertAudioButton, audioCopyService, audioConvertService,
@@ -96,7 +104,7 @@ public class MainWindow {
         new RowExportTonieAudio(stage, selectTonieFileButton, selectedTonieFileLabel,
                 exportTonieAudioButton, tonieAudioExportService, productNameField::getText, this::log);
         new RowListGmeProductIds(stage, selectGmeFolderButton, selectedGmeFolderLabel,
-                listGmeProductIdsButton, tttoolService, this::log);
+                listGmeProductIdsButton, tttoolService, productIdRows, this::log);
 
         ExpandableSubActions prepAudioPane = new ExpandableSubActions(
                 "Only prep audio", selectAudioFolderButton, selectedAudioFolderLabel,
@@ -112,7 +120,7 @@ public class MainWindow {
                 exportTonieAudioButton);
         ExpandableSubActions listGmeProductIdsPane = new ExpandableSubActions(
                 "List GME Product IDs", selectGmeFolderButton, selectedGmeFolderLabel,
-                listGmeProductIdsButton);
+                listGmeProductIdsButton, productIdTable);
         Accordion workflowPanes = new Accordion(prepAudioPane, createYamlPane, createGmePane, exportToniePane,
                 listGmeProductIdsPane);
 
@@ -153,6 +161,26 @@ public class MainWindow {
                 rowYamlToGme.runToolCreateGmeFromYaml();
             }
         });
+    }
+
+    private TableView<RowListGmeProductIds.ProductIdTableRow> createProductIdTable(
+            ObservableList<RowListGmeProductIds.ProductIdTableRow> productIdRows) {
+        TableColumn<RowListGmeProductIds.ProductIdTableRow, String> gmeColumn = new TableColumn<>("gme");
+        gmeColumn.setCellValueFactory(cell -> new SimpleStringProperty(cell.getValue().gme()));
+        gmeColumn.setPrefWidth(300);
+
+        TableColumn<RowListGmeProductIds.ProductIdTableRow, Integer> productIdColumn = new TableColumn<>("Product ID");
+        productIdColumn.setCellValueFactory(cell -> new SimpleIntegerProperty(cell.getValue().productId()).asObject());
+        productIdColumn.setPrefWidth(130);
+
+        TableView<RowListGmeProductIds.ProductIdTableRow> table = new TableView<>(productIdRows);
+        table.getColumns().add(gmeColumn);
+        table.getColumns().add(productIdColumn);
+        table.getSortOrder().add(gmeColumn);
+        table.setPlaceholder(new Label("No Product IDs listed yet"));
+        table.setPrefHeight(200);
+        table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY_FLEX_NEXT_COLUMN);
+        return table;
     }
 
     private void log(String message) {

@@ -1,5 +1,7 @@
 package tiptoieditor.ui;
 
+import javafx.application.Platform;
+import javafx.collections.ObservableList;
 import javafx.scene.control.Button;
 import javafx.scene.control.Label;
 import javafx.stage.Stage;
@@ -7,6 +9,7 @@ import service.tttool.TttoolService;
 
 import java.io.File;
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Consumer;
 
@@ -16,13 +19,15 @@ public class RowListGmeProductIds {
     private final Label selectedFolderLabel;
     private final TttoolService tttoolService;
     private final Consumer<String> logger;
+    private final ObservableList<ProductIdTableRow> productIdRows;
     private File selectedFolder;
 
     public RowListGmeProductIds(Stage stage, Button selectFolderButton, Label selectedFolderLabel,
                                 Button listProductIdsButton, TttoolService tttoolService,
-                                Consumer<String> logger) {
+                                ObservableList<ProductIdTableRow> productIdRows, Consumer<String> logger) {
         this.selectedFolderLabel = selectedFolderLabel;
         this.tttoolService = tttoolService;
+        this.productIdRows = productIdRows;
         this.logger = logger;
         selectFolderButton.setOnAction(event -> selectFolder(stage));
         listProductIdsButton.setOnAction(event -> listProductIds());
@@ -45,9 +50,11 @@ public class RowListGmeProductIds {
 
         Path folder = selectedFolder.toPath();
         logger.accept("Scanning GME files in: " + folder.toAbsolutePath());
+        productIdRows.clear();
         new Thread(() -> {
             try {
                 List<TttoolService.ProductIdResult> results = tttoolService.listProductIds(folder);
+                List<ProductIdTableRow> tableRows = new ArrayList<>();
                 if (results.isEmpty()) {
                     logger.accept("No GME files found.");
                     return;
@@ -57,10 +64,12 @@ public class RowListGmeProductIds {
                     String relativeFile = folder.relativize(result.gmeFile()).toString();
                     if (result.isSuccess()) {
                         logger.accept(relativeFile + " -> Product ID: " + result.productId());
+                        tableRows.add(new ProductIdTableRow(relativeFile, result.productId()));
                     } else {
                         logger.accept(relativeFile + " -> Could not read Product ID: " + result.error());
                     }
                 }
+                Platform.runLater(() -> productIdRows.setAll(tableRows));
                 logger.accept("Listed product IDs for " + results.size() + " GME file(s).");
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
@@ -69,5 +78,8 @@ public class RowListGmeProductIds {
                 logger.accept("Could not list GME product IDs: " + e.getMessage());
             }
         }, "tttool-gme-product-ids").start();
+    }
+
+    public record ProductIdTableRow(String gme, int productId) {
     }
 }

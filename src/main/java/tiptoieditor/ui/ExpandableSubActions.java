@@ -5,6 +5,7 @@ import javafx.scene.control.Button;
 import javafx.scene.control.Label;
 import javafx.scene.control.TitledPane;
 import javafx.scene.layout.HBox;
+import javafx.scene.Node;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.Region;
 import javafx.scene.layout.VBox;
@@ -17,25 +18,38 @@ public class ExpandableSubActions extends TitledPane {
     private final Button loadButton;
     private final Label selectedItemLabel;
     private final Button actionButton;
+    private final Node output;
 
     public ExpandableSubActions(String title, Button loadButton, Label selectedItemLabel,
                                 Button actionButton) {
-        super(title, createPaddedContent(loadButton, selectedItemLabel, actionButton));
+        this(title, loadButton, selectedItemLabel, actionButton, null);
+    }
+
+    /**
+     * Creates an action pane with an optional output row below its controls.
+     */
+    public ExpandableSubActions(String title, Button loadButton, Label selectedItemLabel,
+                                Button actionButton, Node output) {
+        super(title, createPaddedContent(loadButton, selectedItemLabel, actionButton, output));
         this.loadButton = loadButton;
         this.selectedItemLabel = selectedItemLabel;
         this.actionButton = actionButton;
+        this.output = output;
         setExpanded(false);
     }
 
     private static VBox createPaddedContent(Button loadButton, Label selectedItemLabel,
-                                            Button actionButton) {
+                                            Button actionButton, Node output) {
         Region spacer = new Region();
         HBox.setHgrow(spacer, Priority.ALWAYS);
 
         HBox controls = new HBox(10, loadButton, selectedItemLabel, spacer, actionButton);
         controls.setMaxWidth(Double.MAX_VALUE);
 
-        VBox contentBox = new VBox(controls);
+        VBox contentBox = new VBox(10, controls);
+        if (output != null) {
+            contentBox.getChildren().add(output);
+        }
         contentBox.setPadding(new Insets(10));
         return contentBox;
     }
@@ -50,5 +64,9 @@ public class ExpandableSubActions extends TitledPane {
 
     public Button getActionButton() {
         return actionButton;
+    }
+
+    public Node getOutput() {
+        return output;
     }
 }
