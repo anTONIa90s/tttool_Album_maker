@@ -12,16 +12,19 @@ public class AlbumWorkflowContinuation {
 
     private final RowCreateYaml rowCreateYaml;
     private final RowYamlToGme rowYamlToGme;
+    private final RowExportTonieAudio rowExportTonieAudio;
     private final ToggleButton createNewYamlToggle;
     private final Supplier<File> selectedFolderSupplier;
     private final AlbumFolderWorkflowResolver workflowResolver;
     private final Consumer<String> logger;
 
     public AlbumWorkflowContinuation(RowCreateYaml rowCreateYaml, RowYamlToGme rowYamlToGme,
-                                     ToggleButton createNewYamlToggle, Supplier<File> selectedFolderSupplier,
+                                     RowExportTonieAudio rowExportTonieAudio, ToggleButton createNewYamlToggle,
+                                     Supplier<File> selectedFolderSupplier,
                                      AlbumFolderWorkflowResolver workflowResolver, Consumer<String> logger) {
         this.rowCreateYaml = rowCreateYaml;
         this.rowYamlToGme = rowYamlToGme;
+        this.rowExportTonieAudio = rowExportTonieAudio;
         this.createNewYamlToggle = createNewYamlToggle;
         this.selectedFolderSupplier = selectedFolderSupplier;
         this.workflowResolver = workflowResolver;
@@ -57,5 +60,20 @@ public class AlbumWorkflowContinuation {
         createNewYamlToggle.setSelected(false);
         createNewYamlToggle.setManaged(showToggle);
         createNewYamlToggle.setVisible(showToggle);
+    }
+
+    /** Synchronizes the sub-workflow controls with the folder selected for the Run workflow. */
+    public void updateSelectedFolderControls() {
+        File selectedFolder = selectedFolderSupplier.get();
+        if (selectedFolder != null) {
+            AlbumFolderWorkflowResolver.WorkflowResolution resolution = workflowResolver.resolve(selectedFolder);
+            if (resolution.workflow() == AlbumFolderWorkflowResolver.Workflow.EXPORT_TONIE_AUDIO) {
+                rowExportTonieAudio.setSelectedTonieFile(resolution.tonieFile());
+            }
+            if (resolution.yamlFile() != null) {
+                rowYamlToGme.setSelectedYamlFile(resolution.yamlFile());
+            }
+        }
+        updateCreateNewYamlToggle();
     }
 }

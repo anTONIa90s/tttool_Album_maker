@@ -21,6 +21,8 @@ public class RowConvertAudio {
     private final AudioConvertService audioConvertService;
     private final Supplier<String> albumNameSupplier;
     private final Consumer<String> logger;
+    private Consumer<File> selectedAudioFolderConsumer = folder -> { };
+    private Consumer<File> audioPreparedConsumer = folder -> { };
     private File selectedAudioFolder;
 
     public RowConvertAudio(Stage stage, Button selectAudioFolderButton, Label selectedAudioFolderLabel,
@@ -71,14 +73,26 @@ public class RowConvertAudio {
         new Thread(() -> processAudioFolder(audioFolder, onComplete), "audio-process").start();
     }
 
+    /** Copies an existing album's exported audio into {@code audio} and processes it. */
+    public void runToolCopyAndConvertForExistingAlbum(File albumFolder, Consumer<File> onComplete) {
+        new Thread(() -> {
+            File audioFolder = audioCopyService.prepareAudioFolderForExistingAlbum(albumFolder);
+            logger.accept("Audio copied to: " + audioFolder.getAbsolutePath());
+            processAudioFolder(audioFolder, onComplete);
+        }, "audio-convert").start();
+    }
+
     private void processAudioFolder(File audioFolder, Consumer<File> onComplete) {
         logger.accept("Processing audio...");
         audioConvertService.processFolder(audioFolder);
 
         logger.accept("Audio successfully processed.");
-        if (onComplete != null) {
-            Platform.runLater(() -> onComplete.accept(audioFolder));
-        }
+        Platform.runLater(() -> {
+            audioPreparedConsumer.accept(audioFolder);
+            if (onComplete != null) {
+                onComplete.accept(audioFolder);
+            }
+        });
     }
 
     public File getSelectedAudioFolder() {
@@ -88,6 +102,17 @@ public class RowConvertAudio {
     public void setSelectedAudioFolder(File selectedAudioFolder) {
         this.selectedAudioFolder = selectedAudioFolder;
         selectedAudioFolderLabel.setText(selectedAudioFolder.getName());
+        selectedAudioFolderConsumer.accept(selectedAudioFolder);
+    }
+
+    /** Registers a listener for audio-folder selections made by any workflow. */
+    public void setOnSelectedAudioFolder(Consumer<File> selectedAudioFolderConsumer) {
+        this.selectedAudioFolderConsumer = selectedAudioFolderConsumer;
+    }
+
+    /** Registers a listener that receives the {@code audio} folder after preparation is complete. */
+    public void setOnAudioPrepared(Consumer<File> audioPreparedConsumer) {
+        this.audioPreparedConsumer = audioPreparedConsumer;
     }
 
 }

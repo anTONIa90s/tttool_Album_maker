@@ -54,7 +54,7 @@ public class GenerateYamlService {
         List<Path> audioFiles = findAudioFiles(audioDirectory);
         int trackCount = audioFiles.size();
         int digits = String.valueOf(trackCount).length();
-        String title = normalizedDirectory.getFileName().toString();
+        String title = albumTitle(normalizedDirectory.getFileName().toString());
 
         Path yamlFile = normalizedDirectory.resolve(title + ".yaml");
         Path codesFile = normalizedDirectory.resolve(title + ".codes.yaml");
@@ -78,6 +78,12 @@ public class GenerateYamlService {
     private boolean isSupportedAudioFile(Path file) {
         String name = file.getFileName().toString().toLowerCase(Locale.ROOT);
         return name.endsWith(".mp3") || name.endsWith(".ogg");
+    }
+
+    private String albumTitle(String directoryName) {
+        return directoryName.endsWith("_album")
+                ? directoryName.substring(0, directoryName.length() - "_album".length())
+                : directoryName;
     }
 
     private List<String> generateTttoolScript(int productId, String title, int trackCount, int digits) {

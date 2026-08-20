@@ -5,12 +5,13 @@ import javafx.scene.control.Alert;
 import javafx.scene.control.Button;
 import javafx.scene.control.ButtonType;
 import javafx.scene.control.Label;
-import javafx.stage.DirectoryChooser;
 import javafx.stage.FileChooser;
 import javafx.stage.Stage;
 import service.tonie.TonieAudioExportService;
+import service.tonie.TonieExportDestinationService;
 
 import java.io.File;
+import java.io.IOException;
 import java.nio.file.FileAlreadyExistsException;
 import java.util.Optional;
 import java.util.function.Consumer;
@@ -22,19 +23,24 @@ public class RowExportTonieAudio {
     private final Stage stage;
     private final Label selectedTonieFileLabel;
     private final TonieAudioExportService exportService;
+    private final TonieExportDestinationService exportDestinationService;
     private final Supplier<String> titleSupplier;
     private final Consumer<String> logger;
+    private final Consumer<File> exportCompleteConsumer;
     private File selectedTonieFile;
 
     public RowExportTonieAudio(Stage stage, Button selectTonieFileButton, Label selectedTonieFileLabel,
                                Button exportButton, TonieAudioExportService exportService,
+                               TonieExportDestinationService exportDestinationService,
                                Supplier<String> titleSupplier,
-                               Consumer<String> logger) {
+                               Consumer<String> logger, Consumer<File> exportCompleteConsumer) {
         this.stage = stage;
         this.selectedTonieFileLabel = selectedTonieFileLabel;
         this.exportService = exportService;
+        this.exportDestinationService = exportDestinationService;
         this.titleSupplier = titleSupplier;
         this.logger = logger;
+        this.exportCompleteConsumer = exportCompleteConsumer;
         selectTonieFileButton.setOnAction(e -> selectTonieFile());
         exportButton.setOnAction(e -> exportAudio());
     }
@@ -47,11 +53,18 @@ public class RowExportTonieAudio {
         }
         File file = chooser.showOpenDialog(stage);
         if (file != null) {
-            selectedTonieFile = file;
-            File parentDirectory = file.getParentFile();
-            selectedTonieFileLabel.setText(parentDirectory == null ? file.getName() : parentDirectory.getName());
-            logger.accept("Selected Tonie file: " + file.getAbsolutePath());
+            setSelectedTonieFile(file);
         }
+    }
+
+    /** Sets the Tonie file used by both the export pane and the automatic Run workflow. */
+    public void setSelectedTonieFile(File selectedTonieFile) {
+        this.selectedTonieFile = selectedTonieFile;
+        File parentDirectory = selectedTonieFile.getParentFile();
+        selectedTonieFileLabel.setText(parentDirectory == null
+                ? selectedTonieFile.getName()
+                : parentDirectory.getName() + "/" + selectedTonieFile.getName());
+        logger.accept("Selected Tonie file: " + selectedTonieFile.getAbsolutePath());
     }
 
     private void exportAudio() {
@@ -60,15 +73,15 @@ public class RowExportTonieAudio {
             return;
         }
 
-        DirectoryChooser chooser = new DirectoryChooser();
-        chooser.setTitle("Select Audio Export Folder");
-        chooser.setInitialDirectory(selectedTonieFile.getParentFile());
-        File outputDirectory = chooser.showDialog(stage);
-        if (outputDirectory == null) {
+        File outputDirectory;
+        try {
+            outputDirectory = exportDestinationService.createExportFolder(selectedTonieFile, titleSupplier.get());
+            logger.accept("Created Tonie export folder: " + outputDirectory.getAbsolutePath());
+        } catch (IOException e) {
+            logger.accept("Could not create Tonie export folder: " + e.getMessage());
             return;
         }
-
-        runToolExportAudio(selectedTonieFile, outputDirectory, null);
+        runToolExportAudio(selectedTonieFile, outputDirectory, exportCompleteConsumer);
     }
 
     /** Exports a known Tonie file to a known directory and continues on the JavaFX thread. */

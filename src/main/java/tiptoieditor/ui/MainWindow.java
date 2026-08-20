@@ -25,6 +25,7 @@ import service.audio.AudioConvertService;
 import service.audio.AudioCopyService;
 import service.audio.AudioFileNameService;
 import service.tonie.TonieAudioExportService;
+import service.tonie.TonieExportDestinationService;
 import service.tttool.TttoolService;
 import service.workflow.AlbumFolderWorkflowResolver;
 
@@ -47,7 +48,8 @@ public class MainWindow {
         private final AudioCopyService audioCopyService = new AudioCopyService();
         private final AudioConvertService audioConvertService = new AudioConvertService(this::log);
         private final AudioFileNameService audioFileNameService = new AudioFileNameService();
-        private final TonieAudioExportService tonieAudioExportService = new TonieAudioExportService();
+    private final TonieAudioExportService tonieAudioExportService = new TonieAudioExportService();
+    private final TonieExportDestinationService tonieExportDestinationService = new TonieExportDestinationService();
         private final AlbumFolderWorkflowResolver workflowResolver = new AlbumFolderWorkflowResolver(
                         tonieAudioExportService);
 
@@ -66,9 +68,12 @@ public class MainWindow {
                 productIdField.setPromptText("Enter Product ID");
 
                 Button selectDirectoryButton = new Button("Select Directory");
-                HBox rowInput = new HBox(10, selectDirectoryButton, productNameField, productIdField);
-                rowInput.setMaxWidth(Double.MAX_VALUE);
+                Label selectedFolderPathLabel = new Label("No folder selected");
+                selectedFolderPathLabel.setStyle("-fx-text-fill: gray;");
+                HBox inputControlsRow = new HBox(10, selectDirectoryButton, productNameField, productIdField);
+                inputControlsRow.setMaxWidth(Double.MAX_VALUE);
                 HBox.setHgrow(productNameField, Priority.ALWAYS);
+                VBox rowInput = new VBox(4, selectedFolderPathLabel, inputControlsRow);
 
                 Button runButton = new Button("Run tttool");
                 createNewYamlToggle = new ToggleButton("Create new YAML");
@@ -112,14 +117,21 @@ public class MainWindow {
                 rowCreateYaml = new RowCreateYaml(stage, selectAlbumFolderButton, selectedAlbumFolderLabel,
                                 createYamlButton, productIdField::getText,
                                 rowYamlToGme::setSelectedYamlFile, this::log);
+                rowConvertAudio.setOnAudioPrepared(audioFolder -> {
+                        File albumFolder = audioFolder.getParentFile();
+                        rowConvertAudio.setSelectedAudioFolder(albumFolder);
+                        rowCreateYaml.setSelectedAlbumFolder(albumFolder);
+                });
                 rowExportTonieAudio = new RowExportTonieAudio(stage, selectTonieFileButton, selectedTonieFileLabel,
-                                exportTonieAudioButton, tonieAudioExportService, productNameField::getText, this::log);
+                                exportTonieAudioButton, tonieAudioExportService, tonieExportDestinationService,
+                                productNameField::getText, this::log, rowConvertAudio::setSelectedAudioFolder);
                 albumWorkflowContinuation = new AlbumWorkflowContinuation(rowCreateYaml, rowYamlToGme,
-                                createNewYamlToggle,
+                                rowExportTonieAudio, createNewYamlToggle,
                                 rowConvertAudio::getSelectedAudioFolder, workflowResolver, this::log);
-                selectedAudioFolderLabel.textProperty().addListener((observable, oldValue, newValue) -> {
-                        productNameField.setText(newValue);
-                        albumWorkflowContinuation.updateCreateNewYamlToggle();
+                rowConvertAudio.setOnSelectedAudioFolder(folder -> {
+                        selectedFolderPathLabel.setText(folder.getAbsolutePath());
+                        productNameField.setText(folder.getName());
+                        albumWorkflowContinuation.updateSelectedFolderControls();
                 });
                 new RowListGmeProductIds(stage, selectGmeFolderButton, selectedGmeFolderLabel,
                                 listGmeProductIdsButton, tttoolService, productIdRows, this::log);
@@ -188,16 +200,21 @@ public class MainWindow {
                 AlbumFolderWorkflowResolver.WorkflowResolution resolution = workflowResolver.resolve(selectedFolder);
                 switch (resolution.workflow()) {
                         case EXPORT_TONIE_AUDIO -> {
-                                File audioFolder = workflowResolver.createAlbumAudioFolder(selectedFolder,
-                                                productNameField.getText());
-                                if (audioFolder == null) {
-                                        log("Could not create audio folder below: " + selectedFolder.getAbsolutePath());
+                                File exportFolder;
+                                try {
+                                        exportFolder = tonieExportDestinationService.createExportFolder(
+                                                        resolution.tonieFile(), productNameField.getText());
+                                } catch (java.io.IOException e) {
+                                        log("Could not create Tonie export folder: " + e.getMessage());
                                         return;
                                 }
-                                rowExportTonieAudio.runToolExportAudio(resolution.tonieFile(), audioFolder,
-                                                exportedAudioFolder -> rowConvertAudio.runToolProcessAudio(
-                                                                exportedAudioFolder,
-                                                                albumWorkflowContinuation::continueFromAudioFolder));
+                                rowExportTonieAudio.runToolExportAudio(resolution.tonieFile(), exportFolder,
+                                                exportedAlbumFolder -> {
+                                                        rowConvertAudio.setSelectedAudioFolder(exportedAlbumFolder);
+                                                        rowConvertAudio.runToolCopyAndConvertForExistingAlbum(
+                                                                exportedAlbumFolder,
+                                                                albumWorkflowContinuation::continueFromAudioFolder);
+                                                });
                         }
                         case PROCESS_AUDIO -> rowConvertAudio
                                         .runToolCopyAndConvert(albumWorkflowContinuation::continueFromAudioFolder);

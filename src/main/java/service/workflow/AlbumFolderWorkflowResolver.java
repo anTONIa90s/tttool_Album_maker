@@ -43,13 +43,6 @@ public class AlbumFolderWorkflowResolver {
                 && findAlbumYamlFile(folder) != null;
     }
 
-    /** Creates the standard {@code <source>/<album-name>/audio} destination for exported Tonie audio. */
-    public File createAlbumAudioFolder(File sourceFolder, String albumName) {
-        String resolvedAlbumName = albumName == null || albumName.isBlank() ? "tttoolAlbum" : albumName.trim();
-        File audioFolder = new File(new File(sourceFolder, resolvedAlbumName), "audio");
-        return audioFolder.isDirectory() || audioFolder.mkdirs() ? audioFolder : null;
-    }
-
     private File findTonieFile(File folder) {
         File[] files = folder.listFiles(File::isFile);
         if (files == null) {
