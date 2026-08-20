@@ -36,13 +36,6 @@ public class AlbumFolderWorkflowResolver {
         return new WorkflowResolution(Workflow.UNSUPPORTED, null, null);
     }
 
-    /** Returns whether the selected folder is an existing album that already has a main YAML file. */
-    public boolean hasExistingAlbumYaml(File folder) {
-        return folder != null
-                && new File(folder, "audio").isDirectory()
-                && findAlbumYamlFile(folder) != null;
-    }
-
     private File findTonieFile(File folder) {
         File[] files = folder.listFiles(File::isFile);
         if (files == null) {

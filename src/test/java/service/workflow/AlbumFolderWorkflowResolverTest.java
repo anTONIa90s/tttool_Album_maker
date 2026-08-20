@@ -9,8 +9,6 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class AlbumFolderWorkflowResolverTest {
 
@@ -53,7 +51,6 @@ class AlbumFolderWorkflowResolverTest {
 
         assertEquals(AlbumFolderWorkflowResolver.Workflow.EXISTING_ALBUM, result.workflow());
         assertEquals(yamlFile.toFile(), result.yamlFile());
-        assertTrue(resolver.hasExistingAlbumYaml(albumFolder.toFile()));
     }
 
     @Test
@@ -61,6 +58,5 @@ class AlbumFolderWorkflowResolverTest {
         Path folder = Files.createDirectory(temporaryDirectory.resolve("empty"));
 
         assertEquals(AlbumFolderWorkflowResolver.Workflow.UNSUPPORTED, resolver.resolve(folder.toFile()).workflow());
-        assertFalse(resolver.hasExistingAlbumYaml(folder.toFile()));
     }
 }

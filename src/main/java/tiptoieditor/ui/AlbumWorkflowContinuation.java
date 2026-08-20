@@ -1,6 +1,5 @@
 package tiptoieditor.ui;
 
-import javafx.scene.control.ToggleButton;
 import service.workflow.AlbumFolderWorkflowResolver;
 
 import java.io.File;
@@ -13,19 +12,17 @@ public class AlbumWorkflowContinuation {
     private final RowCreateYaml rowCreateYaml;
     private final RowYamlToGme rowYamlToGme;
     private final RowExportTonieAudio rowExportTonieAudio;
-    private final ToggleButton createNewYamlToggle;
     private final Supplier<File> selectedFolderSupplier;
     private final AlbumFolderWorkflowResolver workflowResolver;
     private final Consumer<String> logger;
 
     public AlbumWorkflowContinuation(RowCreateYaml rowCreateYaml, RowYamlToGme rowYamlToGme,
-                                     RowExportTonieAudio rowExportTonieAudio, ToggleButton createNewYamlToggle,
+                                     RowExportTonieAudio rowExportTonieAudio,
                                      Supplier<File> selectedFolderSupplier,
                                      AlbumFolderWorkflowResolver workflowResolver, Consumer<String> logger) {
         this.rowCreateYaml = rowCreateYaml;
         this.rowYamlToGme = rowYamlToGme;
         this.rowExportTonieAudio = rowExportTonieAudio;
-        this.createNewYamlToggle = createNewYamlToggle;
         this.selectedFolderSupplier = selectedFolderSupplier;
         this.workflowResolver = workflowResolver;
         this.logger = logger;
@@ -41,7 +38,7 @@ public class AlbumWorkflowContinuation {
 
     public void continueFromExistingAlbum(File albumFolder, File yamlFile) {
         rowCreateYaml.setSelectedAlbumFolder(albumFolder);
-        if (yamlFile != null && !createNewYamlToggle.isSelected()) {
+        if (yamlFile != null) {
             rowYamlToGme.setSelectedYamlFile(yamlFile);
             logger.accept("Using existing YAML: " + yamlFile.getAbsolutePath());
             rowYamlToGme.runToolCreateGmeFromYaml();
@@ -51,17 +48,11 @@ public class AlbumWorkflowContinuation {
         rowCreateYaml.runToolCreateYaml(generatedYamlFile -> rowYamlToGme.runToolCreateGmeFromYaml());
     }
 
-    public void updateCreateNewYamlToggle() {
-        boolean showToggle = workflowResolver.hasExistingAlbumYaml(selectedFolderSupplier.get());
-        createNewYamlToggle.setSelected(false);
-        createNewYamlToggle.setManaged(showToggle);
-        createNewYamlToggle.setVisible(showToggle);
-    }
-
     /** Synchronizes the sub-workflow controls with the folder selected for the Run workflow. */
     public void updateSelectedFolderControls() {
         File selectedFolder = selectedFolderSupplier.get();
         if (selectedFolder != null) {
+            rowCreateYaml.setSelectedAlbumFolder(selectedFolder);
             AlbumFolderWorkflowResolver.WorkflowResolution resolution = workflowResolver.resolve(selectedFolder);
             if (resolution.workflow() == AlbumFolderWorkflowResolver.Workflow.EXPORT_TONIE_AUDIO) {
                 rowExportTonieAudio.setSelectedTonieFile(resolution.tonieFile());
@@ -70,6 +61,5 @@ public class AlbumWorkflowContinuation {
                 rowYamlToGme.setSelectedYamlFile(resolution.yamlFile());
             }
         }
-        updateCreateNewYamlToggle();
     }
 }

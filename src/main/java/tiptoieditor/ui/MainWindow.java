@@ -14,7 +14,6 @@ import javafx.scene.control.TextArea;
 import javafx.scene.control.TextField;
 import javafx.scene.control.TextFormatter;
 import javafx.scene.control.TitledPane;
-import javafx.scene.control.ToggleButton;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
@@ -44,7 +43,6 @@ public class MainWindow {
         private RowCreateYaml rowCreateYaml;
         private RowYamlToGme rowYamlToGme;
         private RowExportTonieAudio rowExportTonieAudio;
-        private ToggleButton createNewYamlToggle;
         private AlbumWorkflowContinuation albumWorkflowContinuation;
 
         private final TttoolService tttoolService = new TttoolService();
@@ -79,11 +77,7 @@ public class MainWindow {
                 VBox rowInput = new VBox(4, selectedFolderPathLabel, inputControlsRow);
 
                 Button runButton = new Button("Run tttool");
-                createNewYamlToggle = new ToggleButton("Create new YAML");
-                createNewYamlToggle.setSelected(false);
-                createNewYamlToggle.setManaged(false);
-                createNewYamlToggle.setVisible(false);
-                HBox runRow = new HBox(10, runButton, createNewYamlToggle);
+                HBox runRow = new HBox(10, runButton);
                 runRow.setMaxWidth(Double.MAX_VALUE);
                 runButton.setMaxWidth(Double.MAX_VALUE);
                 HBox.setHgrow(runButton, Priority.ALWAYS);
@@ -135,7 +129,7 @@ public class MainWindow {
                                 productNameField::getText, this::log, rowConvertAudio::setSelectedAudioFolder,
                                 this::setWorkflowStatus);
                 albumWorkflowContinuation = new AlbumWorkflowContinuation(rowCreateYaml, rowYamlToGme,
-                                rowExportTonieAudio, createNewYamlToggle,
+                                rowExportTonieAudio,
                                 rowConvertAudio::getSelectedAudioFolder, workflowResolver, this::log);
                 rowConvertAudio.setOnSelectedAudioFolder(folder -> {
                         selectedFolderPathLabel.setText(folder.getAbsolutePath());
