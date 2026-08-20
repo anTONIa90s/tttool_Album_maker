@@ -34,6 +34,23 @@ public class TttoolService {
     }
 
     /**
+     * Creates the printable OID table PDF for an album YAML file.
+     */
+    public String createOidTable(Path yamlFile) throws IOException, InterruptedException {
+        return runTttool(oidTableArguments(yamlFile));
+    }
+
+    static List<String> oidTableArguments(Path yamlFile) {
+        return List.of(
+                "--image-format", "PDF",
+                "--dpi", "1200",
+                "--pixel-size", "4",
+                "--code-dim", "10",
+                "oid-table",
+                yamlFile.toAbsolutePath().toString());
+    }
+
+    /**
      * Reads the product ID reported by {@code tttool info} for one GME file.
      */
     public int getProductId(Path gmeFile) throws IOException, InterruptedException {
@@ -87,11 +104,14 @@ public class TttoolService {
     }
 
     private String runTttool(String command, Path inputFile) throws IOException, InterruptedException {
+        return runTttool(List.of(command, inputFile.toAbsolutePath().toString()));
+    }
 
-        ProcessBuilder processBuilder = new ProcessBuilder(
-                TTTOOL_PATH,
-                command,
-                inputFile.toAbsolutePath().toString());
+    private String runTttool(List<String> arguments) throws IOException, InterruptedException {
+        List<String> command = new ArrayList<>();
+        command.add(TTTOOL_PATH);
+        command.addAll(arguments);
+        ProcessBuilder processBuilder = new ProcessBuilder(command);
 
         // Combine stdout and stderr
         processBuilder.redirectErrorStream(true);

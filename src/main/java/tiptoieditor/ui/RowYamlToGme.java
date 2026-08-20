@@ -24,6 +24,8 @@ public class RowYamlToGme {
     private final WorkflowTaskManager taskManager;
     private File selectedYamlFile;
     private String cancelText = "GME creation cancelled.";
+    private Consumer<File> selectedYamlFileConsumer = yamlFile -> {
+    };
 
     public RowYamlToGme(Stage stage, Button selectYamlFileButton, Label selectedYamlFileLabel,
             Button createGmeButton, TttoolService tttoolService,
@@ -58,6 +60,14 @@ public class RowYamlToGme {
     }
 
     public void runToolCreateGmeFromYaml() {
+        runToolCreateGmeFromYaml(null);
+    }
+
+    /**
+     * Creates the GME in the background and invokes {@code onComplete} on the
+     * JavaFX thread after a successful assembly.
+     */
+    public void runToolCreateGmeFromYaml(Consumer<File> onComplete) {
         if (selectedYamlFile == null) {
             logger.accept("Please select a YAML file first.");
             return;
@@ -76,6 +86,9 @@ public class RowYamlToGme {
                 Platform.runLater(() -> {
                     statusUpdater.accept("Created Gme. Done!");
                     logger.accept(output.isBlank() ? "tttool finished successfully." : output);
+                    if (onComplete != null) {
+                        onComplete.accept(yamlFile);
+                    }
                 });
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
@@ -95,6 +108,15 @@ public class RowYamlToGme {
     public void setSelectedYamlFile(File selectedYamlFile) {
         this.selectedYamlFile = selectedYamlFile;
         selectedYamlFileLabel.setText(selectedYamlFile.getName());
+        selectedYamlFileConsumer.accept(selectedYamlFile);
+    }
+
+    /** Invoked whenever a YAML is selected manually or supplied by the workflow. */
+    public void setOnSelectedYamlFile(Consumer<File> selectedYamlFileConsumer) {
+        this.selectedYamlFileConsumer = selectedYamlFileConsumer;
+        if (selectedYamlFile != null) {
+            selectedYamlFileConsumer.accept(selectedYamlFile);
+        }
     }
 
 }

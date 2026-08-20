@@ -29,6 +29,20 @@ class TttoolServiceTest {
     }
 
     @Test
+    void createsOidTableWithTheRequiredPdfArguments() {
+        Path yamlFile = Path.of("Disney", "_Frozen", "tttoolAlbum.yaml");
+
+        assertEquals(List.of(
+                "--image-format", "PDF",
+                "--dpi", "1200",
+                "--pixel-size", "4",
+                "--code-dim", "10",
+                "oid-table",
+                yamlFile.toAbsolutePath().toString()),
+                TttoolService.oidTableArguments(yamlFile));
+    }
+
+    @Test
     void parsesProductIdFromTttoolInfoOutput() throws IOException {
         String output = """
                 Product ID: 805

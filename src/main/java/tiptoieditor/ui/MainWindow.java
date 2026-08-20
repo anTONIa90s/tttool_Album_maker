@@ -42,6 +42,7 @@ public class MainWindow {
         private RowConvertAudio rowConvertAudio;
         private RowCreateYaml rowCreateYaml;
         private RowYamlToGme rowYamlToGme;
+        private RowCreateOidTable rowCreateOidTable;
         private RowExportTonieAudio rowExportTonieAudio;
         private AlbumWorkflowContinuation albumWorkflowContinuation;
 
@@ -67,7 +68,7 @@ public class MainWindow {
                                 new TextFormatter<>(
                                                 change -> change.getControlNewText().matches("\\d*") ? change : null));
                 productIdField.setPrefColumnCount(5);
-                productIdField.setPromptText("Enter Product ID");
+                productIdField.setPromptText("Product ID");
 
                 Button selectDirectoryButton = new Button("Select Directory");
                 Label selectedFolderPathLabel = new Label("No folder selected");
@@ -98,6 +99,10 @@ public class MainWindow {
                 Label selectedYamlFileLabel = new Label("No YAML file selected");
                 Button createGmeButton = new Button("Create GME");
 
+                Button selectOidTableFolderButton = new Button("Select Album Folder");
+                Label selectedOidTableFolderLabel = new Label("No folder selected");
+                Button createOidTableButton = new Button("Create OID Table");
+
                 Button selectTonieFileButton = new Button("Select Tonie File");
                 Label selectedTonieFileLabel = new Label("No file selected");
                 Button exportTonieAudioButton = new Button("Export OGG");
@@ -120,6 +125,11 @@ public class MainWindow {
                 rowYamlToGme = new RowYamlToGme(stage, selectYamlFileButton, selectedYamlFileLabel,
                                 createGmeButton, tttoolService, audioFileNameService, this::log,
                                 this::setWorkflowStatus, taskManager);
+                rowCreateOidTable = new RowCreateOidTable(stage, selectOidTableFolderButton,
+                                selectedOidTableFolderLabel, createOidTableButton, tttoolService, this::log,
+                                this::setWorkflowStatus, taskManager);
+                rowYamlToGme.setOnSelectedYamlFile(
+                                yamlFile -> rowCreateOidTable.setSelectedAlbumFolder(yamlFile.getParentFile()));
                 rowCreateYaml = new RowCreateYaml(stage, selectAlbumFolderButton, selectedAlbumFolderLabel,
                                 createYamlButton, productIdField::getText,
                                 rowYamlToGme::setSelectedYamlFile, this::log, this::setWorkflowStatus, taskManager);
@@ -133,6 +143,7 @@ public class MainWindow {
                                 productNameField::getText, this::log, rowConvertAudio::setSelectedAudioFolder,
                                 this::setWorkflowStatus, taskManager);
                 albumWorkflowContinuation = new AlbumWorkflowContinuation(rowCreateYaml, rowYamlToGme,
+                                rowCreateOidTable,
                                 rowExportTonieAudio,
                                 rowConvertAudio::getSelectedAudioFolder, workflowResolver, this::log);
                 rowConvertAudio.setOnSelectedAudioFolder(folder -> {
@@ -156,10 +167,14 @@ public class MainWindow {
                 ExpandableSubActions createGmePane = new ExpandableSubActions(
                                 "Only create GME", selectYamlFileButton, selectedYamlFileLabel,
                                 createGmeButton);
+                ExpandableSubActions createOidTablePane = new ExpandableSubActions(
+                                "Only create OID table", selectOidTableFolderButton, selectedOidTableFolderLabel,
+                                createOidTableButton);
                 ExpandableSubActions listGmeProductIdsPane = new ExpandableSubActions(
                                 "List GME Product IDs", selectGmeFolderButton, selectedGmeFolderLabel,
                                 listGmeProductIdsButton, productIdTable, listGmeProductIdsSpinner);
                 Accordion workflowPanes = new Accordion(exportToniePane, prepAudioPane, createYamlPane, createGmePane,
+                                createOidTablePane,
                                 listGmeProductIdsPane);
 
                 workflowStatusLabel = new Label();
@@ -203,7 +218,7 @@ public class MainWindow {
                         cancelButton.setManaged(isRunning);
                 }));
 
-                Scene scene = new Scene(root, 500, 400);
+                Scene scene = new Scene(root, 500, 600);
                 stage.setTitle("TTTool Album Creator");
                 stage.setScene(scene);
                 stage.show();

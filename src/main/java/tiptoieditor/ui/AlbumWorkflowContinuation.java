@@ -11,17 +11,20 @@ public class AlbumWorkflowContinuation {
 
     private final RowCreateYaml rowCreateYaml;
     private final RowYamlToGme rowYamlToGme;
+    private final RowCreateOidTable rowCreateOidTable;
     private final RowExportTonieAudio rowExportTonieAudio;
     private final Supplier<File> selectedFolderSupplier;
     private final AlbumFolderWorkflowResolver workflowResolver;
     private final Consumer<String> logger;
 
     public AlbumWorkflowContinuation(RowCreateYaml rowCreateYaml, RowYamlToGme rowYamlToGme,
+                                     RowCreateOidTable rowCreateOidTable,
                                      RowExportTonieAudio rowExportTonieAudio,
                                      Supplier<File> selectedFolderSupplier,
                                      AlbumFolderWorkflowResolver workflowResolver, Consumer<String> logger) {
         this.rowCreateYaml = rowCreateYaml;
         this.rowYamlToGme = rowYamlToGme;
+        this.rowCreateOidTable = rowCreateOidTable;
         this.rowExportTonieAudio = rowExportTonieAudio;
         this.selectedFolderSupplier = selectedFolderSupplier;
         this.workflowResolver = workflowResolver;
@@ -33,7 +36,8 @@ public class AlbumWorkflowContinuation {
         rowCreateYaml.setSelectedAlbumFolder(albumFolder);
         logger.accept("Selected album folder: " + albumFolder.getAbsolutePath());
 
-        rowCreateYaml.runToolCreateYaml(generatedYamlFile -> rowYamlToGme.runToolCreateGmeFromYaml());
+        rowCreateYaml.runToolCreateYaml(generatedYamlFile ->
+                rowYamlToGme.runToolCreateGmeFromYaml(assembledYaml -> rowCreateOidTable.runToolCreateOidTable()));
     }
 
     public void continueFromExistingAlbum(File albumFolder, File yamlFile) {
@@ -41,11 +45,12 @@ public class AlbumWorkflowContinuation {
         if (yamlFile != null) {
             rowYamlToGme.setSelectedYamlFile(yamlFile);
             logger.accept("Using existing YAML: " + yamlFile.getAbsolutePath());
-            rowYamlToGme.runToolCreateGmeFromYaml();
+            rowYamlToGme.runToolCreateGmeFromYaml(yaml -> rowCreateOidTable.runToolCreateOidTable());
             return;
         }
 
-        rowCreateYaml.runToolCreateYaml(generatedYamlFile -> rowYamlToGme.runToolCreateGmeFromYaml());
+        rowCreateYaml.runToolCreateYaml(generatedYamlFile ->
+                rowYamlToGme.runToolCreateGmeFromYaml(assembledYaml -> rowCreateOidTable.runToolCreateOidTable()));
     }
 
     /** Synchronizes the sub-workflow controls with the folder selected for the Run workflow. */
@@ -59,6 +64,7 @@ public class AlbumWorkflowContinuation {
             }
             if (resolution.yamlFile() != null) {
                 rowYamlToGme.setSelectedYamlFile(resolution.yamlFile());
+                rowCreateOidTable.setSelectedAlbumFolder(selectedFolder);
             }
         }
     }
