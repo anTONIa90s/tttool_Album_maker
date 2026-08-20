@@ -62,15 +62,23 @@ public class RowConvertAudio {
         new Thread(() -> {
             File audioFolder = audioCopyService.prepareAudioFolder(sourceAudioFolder, resolvedAlbumName);
             logger.accept("Audio copied to: " + audioFolder.getAbsolutePath());
-
-            logger.accept("Processing audio...");
-            audioConvertService.processFolder(audioFolder);
-
-            logger.accept("Audio successfully processed.");
-            if (onComplete != null) {
-                Platform.runLater(() -> onComplete.accept(audioFolder));
-            }
+            processAudioFolder(audioFolder, onComplete);
         }, "audio-convert").start();
+    }
+
+    /** Processes an existing album audio directory and then continues on the JavaFX thread. */
+    public void runToolProcessAudio(File audioFolder, Consumer<File> onComplete) {
+        new Thread(() -> processAudioFolder(audioFolder, onComplete), "audio-process").start();
+    }
+
+    private void processAudioFolder(File audioFolder, Consumer<File> onComplete) {
+        logger.accept("Processing audio...");
+        audioConvertService.processFolder(audioFolder);
+
+        logger.accept("Audio successfully processed.");
+        if (onComplete != null) {
+            Platform.runLater(() -> onComplete.accept(audioFolder));
+        }
     }
 
     public File getSelectedAudioFolder() {

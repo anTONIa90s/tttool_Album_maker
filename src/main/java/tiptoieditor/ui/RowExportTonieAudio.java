@@ -60,16 +60,6 @@ public class RowExportTonieAudio {
             return;
         }
 
-        Alert legalNotice = new Alert(Alert.AlertType.CONFIRMATION);
-        legalNotice.setTitle("Legal information");
-        legalNotice.setHeaderText("Export audio content from a Tonie file?");
-        legalNotice.setContentText("Only export content you are allowed to use. Do not share exported files; "
-                + "they may contain information that identifies the Tonie and sharing may be illegal.");
-        Optional<ButtonType> response = legalNotice.showAndWait();
-        if (response.isEmpty() || response.get() != ButtonType.OK) {
-            return;
-        }
-
         DirectoryChooser chooser = new DirectoryChooser();
         chooser.setTitle("Select Audio Export Folder");
         chooser.setInitialDirectory(selectedTonieFile.getParentFile());
@@ -78,7 +68,19 @@ public class RowExportTonieAudio {
             return;
         }
 
-        File inputFile = selectedTonieFile;
+        runToolExportAudio(selectedTonieFile, outputDirectory, null);
+    }
+
+    /** Exports a known Tonie file to a known directory and continues on the JavaFX thread. */
+    public void runToolExportAudio(File inputFile, File outputDirectory, Consumer<File> onComplete) {
+        if (inputFile == null || outputDirectory == null) {
+            logger.accept("Please select a Tonie file and an output folder first.");
+            return;
+        }
+        if (!confirmExport()) {
+            return;
+        }
+
         String title = titleSupplier.get();
         logger.accept("Exporting chapter audio from: " + inputFile.getAbsolutePath());
         new Thread(() -> {
@@ -88,11 +90,24 @@ public class RowExportTonieAudio {
                     logger.accept("Exported OGG: " + result.exportedFile().toAbsolutePath());
                 }
                 logger.accept("Exported " + results.size() + " OGG file(s), SHA-1: " + results.getFirst().audioSha1());
+                if (onComplete != null) {
+                    Platform.runLater(() -> onComplete.accept(outputDirectory));
+                }
             } catch (FileAlreadyExistsException e) {
                 logger.accept("Export skipped: the output file already exists. Choose another folder or remove it first.");
             } catch (Exception e) {
                 logger.accept("Could not export Tonie audio: " + e.getMessage());
             }
         }, "tonie-audio-export").start();
+    }
+
+    private boolean confirmExport() {
+        Alert legalNotice = new Alert(Alert.AlertType.CONFIRMATION);
+        legalNotice.setTitle("Legal information");
+        legalNotice.setHeaderText("Export audio content from a Tonie file?");
+        legalNotice.setContentText("Only export content you are allowed to use. Do not share exported files; "
+                + "they may contain information that identifies the Tonie and sharing may be illegal.");
+        Optional<ButtonType> response = legalNotice.showAndWait();
+        return response.isPresent() && response.get() == ButtonType.OK;
     }
 }

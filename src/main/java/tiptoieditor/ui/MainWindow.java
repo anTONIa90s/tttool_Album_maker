@@ -13,6 +13,7 @@ import javafx.scene.control.TextArea;
 import javafx.scene.control.TextField;
 import javafx.scene.control.TextFormatter;
 import javafx.scene.control.TitledPane;
+import javafx.scene.control.ToggleButton;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
@@ -25,179 +26,216 @@ import service.audio.AudioCopyService;
 import service.audio.AudioFileNameService;
 import service.tonie.TonieAudioExportService;
 import service.tttool.TttoolService;
+import service.workflow.AlbumFolderWorkflowResolver;
 
 import java.io.File;
 
 public class MainWindow {
 
-    private TextArea outputArea;
+        private TextArea outputArea;
 
-    private TextField productNameField;
-    private TextField productIdField;
-    private RowConvertAudio rowConvertAudio;
-    private RowCreateYaml rowCreateYaml;
-    private RowYamlToGme rowYamlToGme;
+        private TextField productNameField;
+        private TextField productIdField;
+        private RowConvertAudio rowConvertAudio;
+        private RowCreateYaml rowCreateYaml;
+        private RowYamlToGme rowYamlToGme;
+        private RowExportTonieAudio rowExportTonieAudio;
+        private ToggleButton createNewYamlToggle;
+        private AlbumWorkflowContinuation albumWorkflowContinuation;
 
-    private final TttoolService tttoolService = new TttoolService();
-    private final AudioCopyService audioCopyService = new AudioCopyService();
-    private final AudioConvertService audioConvertService = new AudioConvertService(this::log);
-    private final AudioFileNameService audioFileNameService = new AudioFileNameService();
-    private final TonieAudioExportService tonieAudioExportService = new TonieAudioExportService();
+        private final TttoolService tttoolService = new TttoolService();
+        private final AudioCopyService audioCopyService = new AudioCopyService();
+        private final AudioConvertService audioConvertService = new AudioConvertService(this::log);
+        private final AudioFileNameService audioFileNameService = new AudioFileNameService();
+        private final TonieAudioExportService tonieAudioExportService = new TonieAudioExportService();
+        private final AlbumFolderWorkflowResolver workflowResolver = new AlbumFolderWorkflowResolver(
+                        tonieAudioExportService);
 
-    public void show(Stage stage) {
-        Label title = new Label("TTTool GUI");
-        title.setStyle("-fx-font-size: 18px; -fx-font-weight: bold;");
+        public void show(Stage stage) {
+                Label title = new Label("TTTool GUI");
+                title.setStyle("-fx-font-size: 18px; -fx-font-weight: bold;");
 
-        productNameField = new TextField();
-        productNameField.setPromptText("Album name (default: tttoolAlbum)");
+                productNameField = new TextField();
+                productNameField.setPromptText("Album name (default: tttoolAlbum)");
 
-        productIdField = new TextField();
-        productIdField.setTextFormatter(
-                new TextFormatter<>(change -> change.getControlNewText().matches("\\d*") ? change : null));
-        productIdField.setPrefColumnCount(5);
-        productIdField.setPromptText("Enter Product ID");
+                productIdField = new TextField();
+                productIdField.setTextFormatter(
+                                new TextFormatter<>(
+                                                change -> change.getControlNewText().matches("\\d*") ? change : null));
+                productIdField.setPrefColumnCount(5);
+                productIdField.setPromptText("Enter Product ID");
 
-        Button selectDirectoryButton = new Button("Select Directory");
-        HBox rowInput = new HBox(10, selectDirectoryButton, productNameField, productIdField);
-        rowInput.setMaxWidth(Double.MAX_VALUE);
-        HBox.setHgrow(productNameField, Priority.ALWAYS);
+                Button selectDirectoryButton = new Button("Select Directory");
+                HBox rowInput = new HBox(10, selectDirectoryButton, productNameField, productIdField);
+                rowInput.setMaxWidth(Double.MAX_VALUE);
+                HBox.setHgrow(productNameField, Priority.ALWAYS);
 
-        Button runButton = new Button("Run tttool");
-        HBox runRow = new HBox(10, runButton);
-        runRow.setMaxWidth(Double.MAX_VALUE);
-        runButton.setMaxWidth(Double.MAX_VALUE);
-        HBox.setHgrow(runButton, Priority.ALWAYS);
+                Button runButton = new Button("Run tttool");
+                createNewYamlToggle = new ToggleButton("Create new YAML");
+                createNewYamlToggle.setSelected(false);
+                createNewYamlToggle.setManaged(false);
+                createNewYamlToggle.setVisible(false);
+                HBox runRow = new HBox(10, runButton, createNewYamlToggle);
+                runRow.setMaxWidth(Double.MAX_VALUE);
+                runButton.setMaxWidth(Double.MAX_VALUE);
+                HBox.setHgrow(runButton, Priority.ALWAYS);
 
-        Button selectAudioFolderButton = new Button("Select Audio Folder");
-        Label selectedAudioFolderLabel = new Label("No folder selected");
-        Button convertAudioButton = new Button("Convert Audio");
+                Button selectAudioFolderButton = new Button("Select Audio Folder");
+                Label selectedAudioFolderLabel = new Label("No folder selected");
+                Button convertAudioButton = new Button("Convert Audio");
 
-        Button selectAlbumFolderButton = new Button("Select Album Folder");
-        Label selectedAlbumFolderLabel = new Label("No folder selected");
-        Button createYamlButton = new Button("Create YAML");
+                Button selectAlbumFolderButton = new Button("Select Album Folder");
+                Label selectedAlbumFolderLabel = new Label("No folder selected");
+                Button createYamlButton = new Button("Create YAML");
 
-        Button selectYamlFileButton = new Button("Select YAML file");
-        Label selectedYamlFileLabel = new Label("No YAML file selected");
-        Button createGmeButton = new Button("Create GME");
+                Button selectYamlFileButton = new Button("Select YAML file");
+                Label selectedYamlFileLabel = new Label("No YAML file selected");
+                Button createGmeButton = new Button("Create GME");
 
-        Button selectTonieFileButton = new Button("Select Tonie File");
-        Label selectedTonieFileLabel = new Label("No file selected");
-        Button exportTonieAudioButton = new Button("Export OGG");
+                Button selectTonieFileButton = new Button("Select Tonie File");
+                Label selectedTonieFileLabel = new Label("No file selected");
+                Button exportTonieAudioButton = new Button("Export OGG");
 
-        Button selectGmeFolderButton = new Button("Select GME Folder");
-        Label selectedGmeFolderLabel = new Label("No folder selected");
-        Button listGmeProductIdsButton = new Button("List Product IDs");
-        ObservableList<RowListGmeProductIds.ProductIdTableRow> productIdRows = FXCollections.observableArrayList();
-        TableView<RowListGmeProductIds.ProductIdTableRow> productIdTable = createProductIdTable(productIdRows);
+                Button selectGmeFolderButton = new Button("Select GME Folder");
+                Label selectedGmeFolderLabel = new Label("No folder selected");
+                Button listGmeProductIdsButton = new Button("List Product IDs");
+                ObservableList<RowListGmeProductIds.ProductIdTableRow> productIdRows = FXCollections
+                                .observableArrayList();
+                TableView<RowListGmeProductIds.ProductIdTableRow> productIdTable = createProductIdTable(productIdRows);
 
-        rowConvertAudio = new RowConvertAudio(stage, selectAudioFolderButton, selectedAudioFolderLabel,
-                convertAudioButton, audioCopyService, audioConvertService,
-                productNameField::getText, this::log);
-        selectedAudioFolderLabel.textProperty().addListener((observable, oldValue, newValue) ->
-                productNameField.setText(newValue));
-        selectDirectoryButton.setOnAction(e -> rowConvertAudio.selectAudioFolder(stage));
-        rowYamlToGme = new RowYamlToGme(stage, selectYamlFileButton, selectedYamlFileLabel,
-                createGmeButton, tttoolService, audioFileNameService, this::log);
-        rowCreateYaml = new RowCreateYaml(stage, selectAlbumFolderButton, selectedAlbumFolderLabel,
-                createYamlButton, productIdField::getText,
-                rowYamlToGme::setSelectedYamlFile, this::log);
-        new RowExportTonieAudio(stage, selectTonieFileButton, selectedTonieFileLabel,
-                exportTonieAudioButton, tonieAudioExportService, productNameField::getText, this::log);
-        new RowListGmeProductIds(stage, selectGmeFolderButton, selectedGmeFolderLabel,
-                listGmeProductIdsButton, tttoolService, productIdRows, this::log);
+                rowConvertAudio = new RowConvertAudio(stage, selectAudioFolderButton, selectedAudioFolderLabel,
+                                convertAudioButton, audioCopyService, audioConvertService,
+                                productNameField::getText, this::log);
+                selectDirectoryButton.setOnAction(e -> rowConvertAudio.selectAudioFolder(stage));
+                rowYamlToGme = new RowYamlToGme(stage, selectYamlFileButton, selectedYamlFileLabel,
+                                createGmeButton, tttoolService, audioFileNameService, this::log);
+                rowCreateYaml = new RowCreateYaml(stage, selectAlbumFolderButton, selectedAlbumFolderLabel,
+                                createYamlButton, productIdField::getText,
+                                rowYamlToGme::setSelectedYamlFile, this::log);
+                rowExportTonieAudio = new RowExportTonieAudio(stage, selectTonieFileButton, selectedTonieFileLabel,
+                                exportTonieAudioButton, tonieAudioExportService, productNameField::getText, this::log);
+                albumWorkflowContinuation = new AlbumWorkflowContinuation(rowCreateYaml, rowYamlToGme,
+                                createNewYamlToggle,
+                                rowConvertAudio::getSelectedAudioFolder, workflowResolver, this::log);
+                selectedAudioFolderLabel.textProperty().addListener((observable, oldValue, newValue) -> {
+                        productNameField.setText(newValue);
+                        albumWorkflowContinuation.updateCreateNewYamlToggle();
+                });
+                new RowListGmeProductIds(stage, selectGmeFolderButton, selectedGmeFolderLabel,
+                                listGmeProductIdsButton, tttoolService, productIdRows, this::log);
 
-        ExpandableSubActions prepAudioPane = new ExpandableSubActions(
-                "Only prep audio", selectAudioFolderButton, selectedAudioFolderLabel,
-                convertAudioButton);
-        ExpandableSubActions createYamlPane = new ExpandableSubActions(
-                "Only create YAML", selectAlbumFolderButton, selectedAlbumFolderLabel,
-                createYamlButton);
-        ExpandableSubActions createGmePane = new ExpandableSubActions(
-                "Only create GME", selectYamlFileButton, selectedYamlFileLabel,
-                createGmeButton);
-        ExpandableSubActions exportToniePane = new ExpandableSubActions(
-                "Export Tonie audio", selectTonieFileButton, selectedTonieFileLabel,
-                exportTonieAudioButton);
-        ExpandableSubActions listGmeProductIdsPane = new ExpandableSubActions(
-                "List GME Product IDs", selectGmeFolderButton, selectedGmeFolderLabel,
-                listGmeProductIdsButton, productIdTable);
-        Accordion workflowPanes = new Accordion(prepAudioPane, createYamlPane, createGmePane, exportToniePane,
-                listGmeProductIdsPane);
+                ExpandableSubActions exportToniePane = new ExpandableSubActions(
+                                "Only export Tonie audio", selectTonieFileButton, selectedTonieFileLabel,
+                                exportTonieAudioButton);
+                ExpandableSubActions prepAudioPane = new ExpandableSubActions(
+                                "Only prep audio", selectAudioFolderButton, selectedAudioFolderLabel,
+                                convertAudioButton);
+                ExpandableSubActions createYamlPane = new ExpandableSubActions(
+                                "Only create YAML", selectAlbumFolderButton, selectedAlbumFolderLabel,
+                                createYamlButton);
+                ExpandableSubActions createGmePane = new ExpandableSubActions(
+                                "Only create GME", selectYamlFileButton, selectedYamlFileLabel,
+                                createGmeButton);
+                ExpandableSubActions listGmeProductIdsPane = new ExpandableSubActions(
+                                "List GME Product IDs", selectGmeFolderButton, selectedGmeFolderLabel,
+                                listGmeProductIdsButton, productIdTable);
+                Accordion workflowPanes = new Accordion(exportToniePane, prepAudioPane, createYamlPane, createGmePane,
+                                listGmeProductIdsPane);
 
-        VBox buttonBox = new VBox(10, rowInput, runRow, workflowPanes);
+                VBox buttonBox = new VBox(10, rowInput, runRow, workflowPanes);
 
-        outputArea = new TextArea();
-        outputArea.setEditable(false);
+                outputArea = new TextArea();
+                outputArea.setEditable(false);
 
-        TitledPane logPane = new TitledPane("Logs", outputArea);
-        logPane.setExpanded(false);
-        logPane.setMaxHeight(Double.MAX_VALUE);
+                TitledPane logPane = new TitledPane("Logs", outputArea);
+                logPane.setExpanded(false);
+                logPane.setMaxHeight(Double.MAX_VALUE);
 
-        BorderPane root = new BorderPane();
-        root.setPadding(new Insets(10));
-        VBox topContent = new VBox(10, title, buttonBox);
-        root.setTop(topContent);
-        root.setBottom(logPane);
-        BorderPane.setMargin(topContent, new Insets(0, 0, 10, 0));
-
-        logPane.expandedProperty().addListener((observable, wasExpanded, isExpanded) -> {
-            if (isExpanded) {
-                root.setBottom(null);
-                root.setCenter(logPane);
-            } else {
-                root.setCenter(null);
+                BorderPane root = new BorderPane();
+                root.setPadding(new Insets(10));
+                VBox topContent = new VBox(10, title, buttonBox);
+                root.setTop(topContent);
                 root.setBottom(logPane);
-            }
-        });
+                BorderPane.setMargin(topContent, new Insets(0, 0, 10, 0));
 
-        runButton.setOnAction(e -> runTool());
+                logPane.expandedProperty().addListener((observable, wasExpanded, isExpanded) -> {
+                        if (isExpanded) {
+                                root.setBottom(null);
+                                root.setCenter(logPane);
+                        } else {
+                                root.setCenter(null);
+                                root.setBottom(logPane);
+                        }
+                });
 
-        Scene scene = new Scene(root, 500, 400);
-        stage.setTitle("TTTool Album Creator");
-        stage.setScene(scene);
-        stage.show();
+                runButton.setOnAction(e -> runTool());
 
-        javafx.application.Platform.runLater(root::requestFocus);
-    }
+                Scene scene = new Scene(root, 500, 400);
+                stage.setTitle("TTTool Album Creator");
+                stage.setScene(scene);
+                stage.show();
 
-    private void runTool() {
-        rowConvertAudio.runToolCopyAndConvert(audioFolder -> {
-            File selectedAlbumFolder = audioFolder.getParentFile();
-            rowCreateYaml.setSelectedAlbumFolder(selectedAlbumFolder);
-            log("Selected album folder: " + selectedAlbumFolder.getAbsolutePath());
-
-            if (rowCreateYaml.runToolCreateYaml()) {
-                rowYamlToGme.runToolCreateGmeFromYaml();
-            }
-        });
-    }
-
-    private TableView<RowListGmeProductIds.ProductIdTableRow> createProductIdTable(
-            ObservableList<RowListGmeProductIds.ProductIdTableRow> productIdRows) {
-        TableColumn<RowListGmeProductIds.ProductIdTableRow, String> gmeColumn = new TableColumn<>("gme");
-        gmeColumn.setCellValueFactory(cell -> new SimpleStringProperty(cell.getValue().gme()));
-        gmeColumn.setPrefWidth(300);
-
-        TableColumn<RowListGmeProductIds.ProductIdTableRow, Integer> productIdColumn = new TableColumn<>("Product ID");
-        productIdColumn.setCellValueFactory(cell -> new SimpleIntegerProperty(cell.getValue().productId()).asObject());
-        productIdColumn.setPrefWidth(130);
-
-        TableView<RowListGmeProductIds.ProductIdTableRow> table = new TableView<>(productIdRows);
-        table.getColumns().add(gmeColumn);
-        table.getColumns().add(productIdColumn);
-        table.getSortOrder().add(gmeColumn);
-        table.setPlaceholder(new Label("No Product IDs listed yet"));
-        table.setPrefHeight(200);
-        table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY_FLEX_NEXT_COLUMN);
-        return table;
-    }
-
-    private void log(String message) {
-        Runnable appendMessage = () -> outputArea.appendText(message + "\n");
-        if (javafx.application.Platform.isFxApplicationThread()) {
-            appendMessage.run();
-        } else {
-            javafx.application.Platform.runLater(appendMessage);
+                javafx.application.Platform.runLater(root::requestFocus);
         }
-    }
+
+        private void runTool() {
+                File selectedFolder = rowConvertAudio.getSelectedAudioFolder();
+                if (selectedFolder == null) {
+                        log("Please select a folder first.");
+                        return;
+                }
+
+                AlbumFolderWorkflowResolver.WorkflowResolution resolution = workflowResolver.resolve(selectedFolder);
+                switch (resolution.workflow()) {
+                        case EXPORT_TONIE_AUDIO -> {
+                                File audioFolder = workflowResolver.createAlbumAudioFolder(selectedFolder,
+                                                productNameField.getText());
+                                if (audioFolder == null) {
+                                        log("Could not create audio folder below: " + selectedFolder.getAbsolutePath());
+                                        return;
+                                }
+                                rowExportTonieAudio.runToolExportAudio(resolution.tonieFile(), audioFolder,
+                                                exportedAudioFolder -> rowConvertAudio.runToolProcessAudio(
+                                                                exportedAudioFolder,
+                                                                albumWorkflowContinuation::continueFromAudioFolder));
+                        }
+                        case PROCESS_AUDIO -> rowConvertAudio
+                                        .runToolCopyAndConvert(albumWorkflowContinuation::continueFromAudioFolder);
+                        case EXISTING_ALBUM -> albumWorkflowContinuation.continueFromExistingAlbum(selectedFolder,
+                                        resolution.yamlFile());
+                        case UNSUPPORTED ->
+                                log("Selected folder contains no Tonie file, MP3/OGG files, or audio directory.");
+                }
+        }
+
+        private TableView<RowListGmeProductIds.ProductIdTableRow> createProductIdTable(
+                        ObservableList<RowListGmeProductIds.ProductIdTableRow> productIdRows) {
+                TableColumn<RowListGmeProductIds.ProductIdTableRow, String> gmeColumn = new TableColumn<>("gme");
+                gmeColumn.setCellValueFactory(cell -> new SimpleStringProperty(cell.getValue().gme()));
+                gmeColumn.setPrefWidth(300);
+
+                TableColumn<RowListGmeProductIds.ProductIdTableRow, Integer> productIdColumn = new TableColumn<>(
+                                "Product ID");
+                productIdColumn.setCellValueFactory(
+                                cell -> new SimpleIntegerProperty(cell.getValue().productId()).asObject());
+                productIdColumn.setPrefWidth(130);
+
+                TableView<RowListGmeProductIds.ProductIdTableRow> table = new TableView<>(productIdRows);
+                table.getColumns().add(gmeColumn);
+                table.getColumns().add(productIdColumn);
+                table.getSortOrder().add(gmeColumn);
+                table.setPlaceholder(new Label("No Product IDs listed yet"));
+                table.setPrefHeight(200);
+                table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY_FLEX_NEXT_COLUMN);
+                return table;
+        }
+
+        private void log(String message) {
+                Runnable appendMessage = () -> outputArea.appendText(message + "\n");
+                if (javafx.application.Platform.isFxApplicationThread()) {
+                        appendMessage.run();
+                } else {
+                        javafx.application.Platform.runLater(appendMessage);
+                }
+        }
 }
