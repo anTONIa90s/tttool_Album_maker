@@ -21,17 +21,20 @@ public class RowYamlToGme {
     private final AudioFileNameService audioFileNameService;
     private final Consumer<String> logger;
     private final Consumer<String> statusUpdater;
+    private final WorkflowTaskManager taskManager;
     private File selectedYamlFile;
+    private String cancelText = "GME creation cancelled.";
 
     public RowYamlToGme(Stage stage, Button selectYamlFileButton, Label selectedYamlFileLabel,
             Button createGmeButton, TttoolService tttoolService,
             AudioFileNameService audioFileNameService, Consumer<String> logger,
-            Consumer<String> statusUpdater) {
+            Consumer<String> statusUpdater, WorkflowTaskManager taskManager) {
         this.selectedYamlFileLabel = selectedYamlFileLabel;
         this.tttoolService = tttoolService;
         this.audioFileNameService = audioFileNameService;
         this.logger = logger;
         this.statusUpdater = statusUpdater;
+        this.taskManager = taskManager;
         selectYamlFileButton.setOnAction(e -> loadYamlFile(stage));
         createGmeButton.setOnAction(e -> runToolCreateGmeFromYaml());
     }
@@ -64,7 +67,7 @@ public class RowYamlToGme {
         logger.accept("Creating GME from: " + yamlFile.getAbsolutePath());
         statusUpdater.accept("Creating Gme...");
 
-        new Thread(() -> {
+        taskManager.start("tttool-assemble", () -> {
             try {
                 File audioFolder = yamlFile.toPath().getParent().resolve("audio").toFile();
                 audioFileNameService.renameFiles(audioFolder);
@@ -74,12 +77,19 @@ public class RowYamlToGme {
                     statusUpdater.accept("Created Gme. Done!");
                     logger.accept(output.isBlank() ? "tttool finished successfully." : output);
                 });
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                Platform.runLater(() -> {
+                    logger.accept(cancelText);
+                    statusUpdater.accept(cancelText);
+                });
             } catch (Exception e) {
                 Platform.runLater(() -> {
                     logger.accept("Could not create GME: " + e.getMessage());
+                    statusUpdater.accept("GME creation failed.");
                 });
             }
-        }, "tttool-assemble").start();
+        });
     }
 
     public void setSelectedYamlFile(File selectedYamlFile) {

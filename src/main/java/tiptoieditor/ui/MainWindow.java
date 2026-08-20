@@ -45,12 +45,13 @@ public class MainWindow {
         private RowExportTonieAudio rowExportTonieAudio;
         private AlbumWorkflowContinuation albumWorkflowContinuation;
 
-        private final TttoolService tttoolService = new TttoolService();
+        private final WorkflowTaskManager taskManager = new WorkflowTaskManager();
+        private final TttoolService tttoolService = new TttoolService(taskManager);
         private final AudioCopyService audioCopyService = new AudioCopyService();
-        private final AudioConvertService audioConvertService = new AudioConvertService(this::log);
+        private final AudioConvertService audioConvertService = new AudioConvertService(this::log, taskManager);
         private final AudioFileNameService audioFileNameService = new AudioFileNameService();
-    private final TonieAudioExportService tonieAudioExportService = new TonieAudioExportService();
-    private final TonieExportDestinationService tonieExportDestinationService = new TonieExportDestinationService();
+        private final TonieAudioExportService tonieAudioExportService = new TonieAudioExportService();
+        private final TonieExportDestinationService tonieExportDestinationService = new TonieExportDestinationService();
         private final AlbumFolderWorkflowResolver workflowResolver = new AlbumFolderWorkflowResolver(
                         tonieAudioExportService);
 
@@ -77,7 +78,10 @@ public class MainWindow {
                 VBox rowInput = new VBox(4, selectedFolderPathLabel, inputControlsRow);
 
                 Button runButton = new Button("Run tttool");
-                HBox runRow = new HBox(10, runButton);
+                Button cancelButton = new Button("Cancel");
+                cancelButton.setVisible(false);
+                cancelButton.setManaged(false);
+                HBox runRow = new HBox(10, runButton, cancelButton);
                 runRow.setMaxWidth(Double.MAX_VALUE);
                 runButton.setMaxWidth(Double.MAX_VALUE);
                 HBox.setHgrow(runButton, Priority.ALWAYS);
@@ -111,14 +115,14 @@ public class MainWindow {
 
                 rowConvertAudio = new RowConvertAudio(stage, selectAudioFolderButton, selectedAudioFolderLabel,
                                 convertAudioButton, audioCopyService, audioConvertService,
-                                productNameField::getText, this::log, this::setWorkflowStatus);
+                                productNameField::getText, this::log, this::setWorkflowStatus, taskManager);
                 selectDirectoryButton.setOnAction(e -> rowConvertAudio.selectAudioFolder(stage));
                 rowYamlToGme = new RowYamlToGme(stage, selectYamlFileButton, selectedYamlFileLabel,
                                 createGmeButton, tttoolService, audioFileNameService, this::log,
-                                this::setWorkflowStatus);
+                                this::setWorkflowStatus, taskManager);
                 rowCreateYaml = new RowCreateYaml(stage, selectAlbumFolderButton, selectedAlbumFolderLabel,
                                 createYamlButton, productIdField::getText,
-                                rowYamlToGme::setSelectedYamlFile, this::log, this::setWorkflowStatus);
+                                rowYamlToGme::setSelectedYamlFile, this::log, this::setWorkflowStatus, taskManager);
                 rowConvertAudio.setOnAudioPrepared(audioFolder -> {
                         File albumFolder = audioFolder.getParentFile();
                         rowConvertAudio.setSelectedAudioFolder(albumFolder);
@@ -127,7 +131,7 @@ public class MainWindow {
                 rowExportTonieAudio = new RowExportTonieAudio(stage, selectTonieFileButton, selectedTonieFileLabel,
                                 exportTonieAudioButton, tonieAudioExportService, tonieExportDestinationService,
                                 productNameField::getText, this::log, rowConvertAudio::setSelectedAudioFolder,
-                                this::setWorkflowStatus);
+                                this::setWorkflowStatus, taskManager);
                 albumWorkflowContinuation = new AlbumWorkflowContinuation(rowCreateYaml, rowYamlToGme,
                                 rowExportTonieAudio,
                                 rowConvertAudio::getSelectedAudioFolder, workflowResolver, this::log);
@@ -138,7 +142,7 @@ public class MainWindow {
                 });
                 new RowListGmeProductIds(stage, selectGmeFolderButton, selectedGmeFolderLabel,
                                 listGmeProductIdsButton, listGmeProductIdsSpinner, tttoolService, productIdRows,
-                                this::log);
+                                this::log, taskManager);
 
                 ExpandableSubActions exportToniePane = new ExpandableSubActions(
                                 "Only export Tonie audio", selectTonieFileButton, selectedTonieFileLabel,
@@ -193,6 +197,11 @@ public class MainWindow {
                 });
 
                 runButton.setOnAction(e -> runTool());
+                cancelButton.setOnAction(e -> cancelRunningTasks());
+                taskManager.setOnRunningChanged(isRunning -> javafx.application.Platform.runLater(() -> {
+                        cancelButton.setVisible(isRunning);
+                        cancelButton.setManaged(isRunning);
+                }));
 
                 Scene scene = new Scene(root, 500, 400);
                 stage.setTitle("TTTool Album Creator");
@@ -224,8 +233,8 @@ public class MainWindow {
                                                 exportedAlbumFolder -> {
                                                         rowConvertAudio.setSelectedAudioFolder(exportedAlbumFolder);
                                                         rowConvertAudio.runToolCopyAndConvertForExistingAlbum(
-                                                                exportedAlbumFolder,
-                                                                albumWorkflowContinuation::continueFromAudioFolder);
+                                                                        exportedAlbumFolder,
+                                                                        albumWorkflowContinuation::continueFromAudioFolder);
                                                 });
                         }
                         case PROCESS_AUDIO -> rowConvertAudio
@@ -266,6 +275,11 @@ public class MainWindow {
                 } else {
                         javafx.application.Platform.runLater(appendMessage);
                 }
+        }
+
+        private void cancelRunningTasks() {
+                taskManager.cancelAll();
+                log("Cancellation requested.");
         }
 
         private void setWorkflowStatus(String message) {

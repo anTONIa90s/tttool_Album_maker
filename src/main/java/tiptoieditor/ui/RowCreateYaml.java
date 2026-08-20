@@ -20,17 +20,20 @@ public class RowCreateYaml {
     private final Consumer<File> yamlFileConsumer;
     private final Consumer<String> logger;
     private final Consumer<String> statusUpdater;
+    private final WorkflowTaskManager taskManager;
     private File selectedAlbumFolder;
+    private String cancelText = "YAML creation cancelled.";
 
     public RowCreateYaml(Stage stage, Button selectAlbumFolderButton, Label selectedAlbumFolderLabel,
             Button createYamlButton, Supplier<String> productIdSupplier,
             Consumer<File> yamlFileConsumer, Consumer<String> logger,
-            Consumer<String> statusUpdater) {
+            Consumer<String> statusUpdater, WorkflowTaskManager taskManager) {
         this.selectedAlbumFolderLabel = selectedAlbumFolderLabel;
         this.productIdSupplier = productIdSupplier;
         this.yamlFileConsumer = yamlFileConsumer;
         this.logger = logger;
         this.statusUpdater = statusUpdater;
+        this.taskManager = taskManager;
         selectAlbumFolderButton.setOnAction(e -> selectAlbumFolder(stage));
         createYamlButton.setOnAction(e -> runToolCreateYaml());
     }
@@ -79,11 +82,16 @@ public class RowCreateYaml {
         }
         File albumFolder = selectedAlbumFolder;
         statusUpdater.accept("Creating Yaml...");
-        new Thread(() -> {
+        taskManager.start("yaml-create", () -> {
             try {
                 logger.accept("Creating YAML...");
                 GenerateYamlService.GeneratedYamlFiles generatedFiles = new GenerateYamlService()
                         .generate(productId, albumFolder);
+                if (Thread.currentThread().isInterrupted()) {
+                    logger.accept(cancelText);
+                    statusUpdater.accept(cancelText);
+                    return;
+                }
                 File yamlFile = generatedFiles.yamlFile().toFile();
                 logger.accept("YAML created: " + yamlFile.getAbsolutePath());
                 Platform.runLater(() -> {
@@ -95,7 +103,8 @@ public class RowCreateYaml {
                 });
             } catch (Exception e) {
                 logger.accept("Could not create YAML: " + e.getMessage());
+                statusUpdater.accept("YAML creation failed.");
             }
-        }, "yaml-create").start();
+        });
     }
 }

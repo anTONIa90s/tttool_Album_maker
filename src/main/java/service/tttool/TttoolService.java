@@ -12,12 +12,22 @@ import java.util.Locale;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
+import tiptoieditor.ui.WorkflowTaskManager;
 
 public class TttoolService {
 
     // Adjust this if your executable is somewhere else
     private static final String TTTOOL_PATH = "./tools/tttool";
     private static final Pattern PRODUCT_ID_PATTERN = Pattern.compile("(?m)^Product ID:\\s*(\\d+)\\s*$");
+    private final WorkflowTaskManager taskManager;
+
+    public TttoolService() {
+        this(null);
+    }
+
+    public TttoolService(WorkflowTaskManager taskManager) {
+        this.taskManager = taskManager;
+    }
 
     public String assemble(Path yamlFile) throws IOException, InterruptedException {
         return runTttool("assemble", yamlFile);
@@ -87,6 +97,9 @@ public class TttoolService {
         processBuilder.redirectErrorStream(true);
 
         Process process = processBuilder.start();
+        if (taskManager != null) {
+            taskManager.register(process);
+        }
 
         StringBuilder output = new StringBuilder();
 
@@ -99,7 +112,14 @@ public class TttoolService {
             }
         }
 
-        int exitCode = process.waitFor();
+        int exitCode;
+        try {
+            exitCode = process.waitFor();
+        } finally {
+            if (taskManager != null) {
+                taskManager.unregister(process);
+            }
+        }
 
         if (exitCode != 0) {
             throw new RuntimeException(

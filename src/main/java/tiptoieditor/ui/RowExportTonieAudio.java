@@ -12,6 +12,7 @@ import service.tonie.TonieExportDestinationService;
 
 import java.io.File;
 import java.io.IOException;
+import java.io.InterruptedIOException;
 import java.nio.file.FileAlreadyExistsException;
 import java.util.Optional;
 import java.util.function.Consumer;
@@ -28,14 +29,16 @@ public class RowExportTonieAudio {
     private final Consumer<String> logger;
     private final Consumer<File> exportCompleteConsumer;
     private final Consumer<String> statusUpdater;
+    private final WorkflowTaskManager taskManager;
     private File selectedTonieFile;
+    private String cancelText = "Tonie audio export cancelled.";
 
     public RowExportTonieAudio(Stage stage, Button selectTonieFileButton, Label selectedTonieFileLabel,
             Button exportButton, TonieAudioExportService exportService,
             TonieExportDestinationService exportDestinationService,
             Supplier<String> titleSupplier,
             Consumer<String> logger, Consumer<File> exportCompleteConsumer,
-            Consumer<String> statusUpdater) {
+            Consumer<String> statusUpdater, WorkflowTaskManager taskManager) {
         this.stage = stage;
         this.selectedTonieFileLabel = selectedTonieFileLabel;
         this.exportService = exportService;
@@ -44,6 +47,7 @@ public class RowExportTonieAudio {
         this.logger = logger;
         this.exportCompleteConsumer = exportCompleteConsumer;
         this.statusUpdater = statusUpdater;
+        this.taskManager = taskManager;
         selectTonieFileButton.setOnAction(e -> selectTonieFile());
         exportButton.setOnAction(e -> exportAudio());
     }
@@ -85,6 +89,7 @@ public class RowExportTonieAudio {
             logger.accept("Created Tonie export folder: " + outputDirectory.getAbsolutePath());
         } catch (IOException e) {
             logger.accept("Could not create Tonie export folder: " + e.getMessage());
+            statusUpdater.accept("Tonie audio export failed.");
             return;
         }
         runToolExportAudio(selectedTonieFile, outputDirectory, exportCompleteConsumer);
@@ -106,9 +111,14 @@ public class RowExportTonieAudio {
         String title = titleSupplier.get();
         logger.accept("Exporting chapter audio from: " + inputFile.getAbsolutePath());
         statusUpdater.accept("Exporting Tonie audio fiiles...");
-        new Thread(() -> {
+        taskManager.start("tonie-audio-export", () -> {
             try {
                 var results = exportService.export(inputFile.toPath(), outputDirectory.toPath(), title);
+                if (Thread.currentThread().isInterrupted()) {
+                    logger.accept(cancelText);
+                    statusUpdater.accept(cancelText);
+                    return;
+                }
                 for (TonieAudioExportService.ExportResult result : results) {
                     logger.accept("Exported OGG: " + result.exportedFile().toAbsolutePath());
                 }
@@ -117,13 +127,18 @@ public class RowExportTonieAudio {
                 if (onComplete != null) {
                     Platform.runLater(() -> onComplete.accept(outputDirectory));
                 }
+            } catch (InterruptedIOException e) {
+                logger.accept(cancelText);
+                statusUpdater.accept(cancelText);
             } catch (FileAlreadyExistsException e) {
                 logger.accept(
                         "Export skipped: the output file already exists. Choose another folder or remove it first.");
+                statusUpdater.accept("Tonie audio export skipped.");
             } catch (Exception e) {
                 logger.accept("Could not export Tonie audio: " + e.getMessage());
+                statusUpdater.accept("Tonie audio export failed.");
             }
-        }, "tonie-audio-export").start();
+        });
     }
 
     private boolean confirmExport() {

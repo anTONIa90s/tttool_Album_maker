@@ -22,16 +22,19 @@ public class RowListGmeProductIds {
     private final Consumer<String> logger;
     private final ObservableList<ProductIdTableRow> productIdRows;
     private final ProgressIndicator spinner;
+    private final WorkflowTaskManager taskManager;
     private File selectedFolder;
 
     public RowListGmeProductIds(Stage stage, Button selectFolderButton, Label selectedFolderLabel,
                                 Button listProductIdsButton, ProgressIndicator spinner, TttoolService tttoolService,
-                                ObservableList<ProductIdTableRow> productIdRows, Consumer<String> logger) {
+                                ObservableList<ProductIdTableRow> productIdRows, Consumer<String> logger,
+                                WorkflowTaskManager taskManager) {
         this.selectedFolderLabel = selectedFolderLabel;
         this.tttoolService = tttoolService;
         this.productIdRows = productIdRows;
         this.spinner = spinner;
         this.logger = logger;
+        this.taskManager = taskManager;
         selectFolderButton.setOnAction(event -> selectFolder(stage));
         listProductIdsButton.setOnAction(event -> listProductIds());
     }
@@ -55,7 +58,7 @@ public class RowListGmeProductIds {
         logger.accept("Scanning GME files in: " + folder.toAbsolutePath());
         productIdRows.clear();
         spinner.setVisible(true);
-        new Thread(() -> {
+        taskManager.start("tttool-gme-product-ids", () -> {
             try {
                 List<TttoolService.ProductIdResult> results = tttoolService.listProductIds(folder);
                 List<ProductIdTableRow> tableRows = new ArrayList<>();
@@ -83,7 +86,7 @@ public class RowListGmeProductIds {
             } finally {
                 Platform.runLater(() -> spinner.setVisible(false));
             }
-        }, "tttool-gme-product-ids").start();
+        });
     }
 
     public record ProductIdTableRow(String gme, int productId) {

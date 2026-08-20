@@ -5,13 +5,20 @@ import java.io.File;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.util.function.Consumer;
+import tiptoieditor.ui.WorkflowTaskManager;
 
 public class AudioConvertService {
 
     private final Consumer<String> logger;
+    private final WorkflowTaskManager taskManager;
 
     public AudioConvertService(Consumer<String> logger) {
+        this(logger, null);
+    }
+
+    public AudioConvertService(Consumer<String> logger, WorkflowTaskManager taskManager) {
         this.logger = logger;
+        this.taskManager = taskManager;
     }
 
     public void processFolder(File folder) {
@@ -21,6 +28,9 @@ public class AudioConvertService {
             return;
 
         for (File file : files) {
+            if (Thread.currentThread().isInterrupted()) {
+                return;
+            }
 
             if (file.isFile()) {
                 String name = file.getName().toLowerCase();
@@ -61,11 +71,16 @@ public class AudioConvertService {
             pb.redirectErrorStream(true);
 
             Process process = pb.start();
+            register(process);
 
-            String output = new BufferedReader(
-                    new InputStreamReader(process.getInputStream())).readLine();
-
-            process.waitFor();
+            String output;
+            try {
+                output = new BufferedReader(
+                        new InputStreamReader(process.getInputStream())).readLine();
+                process.waitFor();
+            } finally {
+                unregister(process);
+            }
 
             if (output == null)
                 return true;
@@ -93,6 +108,10 @@ public class AudioConvertService {
 
             return !(isVorbis && is22050 && isMono && isStart0);
 
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            logger.accept("Audio inspection cancelled.");
+            return false;
         } catch (Exception e) {
             e.printStackTrace();
             logger.accept("Could not inspect audio file " + file.getName() + ": " + e.getMessage());
@@ -119,11 +138,16 @@ public class AudioConvertService {
 
         try {
             Process process = pb.start();
+            register(process);
 
-            new BufferedReader(
-                    new InputStreamReader(process.getInputStream())).lines().forEach(System.out::println);
-
-            int exitCode = process.waitFor();
+            int exitCode;
+            try {
+                new BufferedReader(
+                        new InputStreamReader(process.getInputStream())).lines().forEach(System.out::println);
+                exitCode = process.waitFor();
+            } finally {
+                unregister(process);
+            }
 
             if (exitCode == 0) {
                 // ✅ replace original file
@@ -148,9 +172,24 @@ public class AudioConvertService {
                 tempFile.delete();
             }
 
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            logger.accept("Audio conversion cancelled.");
         } catch (Exception e) {
             e.printStackTrace();
             logger.accept("Could not convert audio file " + file.getName() + ": " + e.getMessage());
+        }
+    }
+
+    private void register(Process process) {
+        if (taskManager != null) {
+            taskManager.register(process);
+        }
+    }
+
+    private void unregister(Process process) {
+        if (taskManager != null) {
+            taskManager.unregister(process);
         }
     }
 }

@@ -2,6 +2,7 @@ package service.tonie;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.io.InterruptedIOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.nio.file.Files;
@@ -45,6 +46,7 @@ public class TonieAudioExportService {
 
         List<ExportResult> results = new ArrayList<>();
         for (int chapter = 0; chapter < chapterStarts.size(); chapter++) {
+            checkCancelled();
             int start = chapterStarts.get(chapter);
             int end = chapter + 1 < chapterStarts.size() ? chapterStarts.get(chapter + 1) : pages.size();
             Path target = outputDirectory.resolve(filenameBase + "-" + String.format("%02d", chapter + 1) + ".ogg");
@@ -127,6 +129,7 @@ public class TonieAudioExportService {
         try (InputStream input = Files.newInputStream(tonieFile)) {
             input.skipNBytes(audioOffset);
             while (true) {
+                checkCancelled();
                 byte[] header = input.readNBytes(OGG_HEADER_BYTES);
                 if (header.length == 0) {
                     break;
@@ -195,6 +198,7 @@ public class TonieAudioExportService {
 
         try (OutputStream output = Files.newOutputStream(target, StandardOpenOption.CREATE_NEW)) {
             for (int i = 0; i < chapterPages.size(); i++) {
+                checkCancelled();
                 byte[] page = chapterPages.get(i).bytes().clone();
                 writeLittleEndianUint32(page, OGG_PAGE_SEQUENCE_OFFSET, i);
                 if (start > 0 && i >= 2) {
@@ -254,6 +258,7 @@ public class TonieAudioExportService {
                 input.skipNBytes(offset);
                 byte[] buffer = new byte[8192];
                 for (int bytesRead; (bytesRead = input.read(buffer)) != -1; ) {
+                    checkCancelled();
                     digest.update(buffer, 0, bytesRead);
                 }
             }
@@ -265,6 +270,12 @@ public class TonieAudioExportService {
 
     private static boolean startsWithOggCapturePattern(byte[] page) {
         return page[0] == 'O' && page[1] == 'g' && page[2] == 'g' && page[3] == 'S';
+    }
+
+    private void checkCancelled() throws InterruptedIOException {
+        if (Thread.currentThread().isInterrupted()) {
+            throw new InterruptedIOException("Tonie audio export cancelled.");
+        }
     }
 
     private static long readBigEndianUint32(byte[] data, int offset) {

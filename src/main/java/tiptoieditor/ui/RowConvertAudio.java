@@ -22,6 +22,8 @@ public class RowConvertAudio {
     private final Supplier<String> albumNameSupplier;
     private final Consumer<String> logger;
     private final Consumer<String> statusUpdater;
+    private final WorkflowTaskManager taskManager;
+    private String cancelText = "Audio preparation cancelled.";
     private Consumer<File> selectedAudioFolderConsumer = folder -> {
     };
     private Consumer<File> audioPreparedConsumer = folder -> {
@@ -31,13 +33,14 @@ public class RowConvertAudio {
     public RowConvertAudio(Stage stage, Button selectAudioFolderButton, Label selectedAudioFolderLabel,
             Button convertButton, AudioCopyService audioCopyService,
             AudioConvertService audioConvertService, Supplier<String> albumNameSupplier, Consumer<String> logger,
-            Consumer<String> statusUpdater) {
+            Consumer<String> statusUpdater, WorkflowTaskManager taskManager) {
         this.selectedAudioFolderLabel = selectedAudioFolderLabel;
         this.audioCopyService = audioCopyService;
         this.audioConvertService = audioConvertService;
         this.albumNameSupplier = albumNameSupplier;
         this.logger = logger;
         this.statusUpdater = statusUpdater;
+        this.taskManager = taskManager;
         selectAudioFolderButton.setOnAction(e -> selectAudioFolder(stage));
         convertButton.setOnAction(e -> runToolCopyAndConvert());
     }
@@ -67,11 +70,21 @@ public class RowConvertAudio {
         logger.accept("Preparing folder structure for album: " + resolvedAlbumName);
         statusUpdater.accept("Prepping audio fiiles...");
 
-        new Thread(() -> {
-            File audioFolder = audioCopyService.prepareAudioFolder(sourceAudioFolder, resolvedAlbumName);
-            logger.accept("Audio copied to: " + audioFolder.getAbsolutePath());
-            processAudioFolder(audioFolder, onComplete);
-        }, "audio-convert").start();
+        taskManager.start("audio-convert", () -> {
+            try {
+                File audioFolder = audioCopyService.prepareAudioFolder(sourceAudioFolder, resolvedAlbumName);
+                if (Thread.currentThread().isInterrupted()) {
+                    logger.accept(cancelText);
+                    statusUpdater.accept(cancelText);
+                    return;
+                }
+                logger.accept("Audio copied to: " + audioFolder.getAbsolutePath());
+                processAudioFolder(audioFolder, onComplete);
+            } catch (Exception e) {
+                logger.accept("Could not prepare audio: " + e.getMessage());
+                statusUpdater.accept("Audio preparation failed.");
+            }
+        });
     }
 
     /**
@@ -80,7 +93,7 @@ public class RowConvertAudio {
      */
     public void runToolProcessAudio(File audioFolder, Consumer<File> onComplete) {
         statusUpdater.accept("Prepping audio fiiles...");
-        new Thread(() -> processAudioFolder(audioFolder, onComplete), "audio-process").start();
+        taskManager.start("audio-process", () -> processAudioFolder(audioFolder, onComplete));
     }
 
     /**
@@ -89,16 +102,38 @@ public class RowConvertAudio {
      */
     public void runToolCopyAndConvertForExistingAlbum(File albumFolder, Consumer<File> onComplete) {
         statusUpdater.accept("Prepping audio fiiles...");
-        new Thread(() -> {
-            File audioFolder = audioCopyService.prepareAudioFolderForExistingAlbum(albumFolder);
-            logger.accept("Audio copied to: " + audioFolder.getAbsolutePath());
-            processAudioFolder(audioFolder, onComplete);
-        }, "audio-convert").start();
+        taskManager.start("audio-convert", () -> {
+            try {
+                File audioFolder = audioCopyService.prepareAudioFolderForExistingAlbum(albumFolder);
+                if (Thread.currentThread().isInterrupted()) {
+                    logger.accept(cancelText);
+                    statusUpdater.accept(cancelText);
+                    return;
+                }
+                logger.accept("Audio copied to: " + audioFolder.getAbsolutePath());
+                processAudioFolder(audioFolder, onComplete);
+            } catch (Exception e) {
+                logger.accept("Could not prepare audio: " + e.getMessage());
+                statusUpdater.accept("Audio preparation failed.");
+            }
+        });
     }
 
     private void processAudioFolder(File audioFolder, Consumer<File> onComplete) {
         logger.accept("Processing audio...");
-        audioConvertService.processFolder(audioFolder);
+        try {
+            audioConvertService.processFolder(audioFolder);
+        } catch (Exception e) {
+            logger.accept("Could not prepare audio: " + e.getMessage());
+            statusUpdater.accept("Audio preparation failed.");
+            return;
+        }
+
+        if (Thread.currentThread().isInterrupted()) {
+            logger.accept(cancelText);
+            statusUpdater.accept(cancelText);
+            return;
+        }
 
         logger.accept("Audio successfully processed.");
         statusUpdater.accept("Prepped audio fiiles. Done!");
