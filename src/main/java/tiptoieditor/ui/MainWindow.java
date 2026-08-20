@@ -131,15 +131,24 @@ public class MainWindow {
 
         TitledPane logPane = new TitledPane("Logs", outputArea);
         logPane.setExpanded(false);
-        logPane.setMaxHeight(200);
+        logPane.setMaxHeight(Double.MAX_VALUE);
 
         BorderPane root = new BorderPane();
         root.setPadding(new Insets(10));
-        root.setTop(title);
-        root.setCenter(buttonBox);
+        VBox topContent = new VBox(10, title, buttonBox);
+        root.setTop(topContent);
         root.setBottom(logPane);
-        BorderPane.setMargin(title, new Insets(0, 0, 10, 0));
-        BorderPane.setMargin(buttonBox, new Insets(0, 0, 10, 0));
+        BorderPane.setMargin(topContent, new Insets(0, 0, 10, 0));
+
+        logPane.expandedProperty().addListener((observable, wasExpanded, isExpanded) -> {
+            if (isExpanded) {
+                root.setBottom(null);
+                root.setCenter(logPane);
+            } else {
+                root.setCenter(null);
+                root.setBottom(logPane);
+            }
+        });
 
         runButton.setOnAction(e -> runTool());
 
