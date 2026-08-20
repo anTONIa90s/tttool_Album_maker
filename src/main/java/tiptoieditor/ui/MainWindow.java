@@ -78,6 +78,10 @@ public class MainWindow {
         Label selectedTonieFileLabel = new Label("No file selected");
         Button exportTonieAudioButton = new Button("Export OGG");
 
+        Button selectGmeFolderButton = new Button("Select GME Folder");
+        Label selectedGmeFolderLabel = new Label("No folder selected");
+        Button listGmeProductIdsButton = new Button("List Product IDs");
+
         rowConvertAudio = new RowConvertAudio(stage, selectAudioFolderButton, selectedAudioFolderLabel,
                 convertAudioButton, audioCopyService, audioConvertService,
                 productNameField::getText, this::log);
@@ -91,6 +95,8 @@ public class MainWindow {
                 rowYamlToGme::setSelectedYamlFile, this::log);
         new RowExportTonieAudio(stage, selectTonieFileButton, selectedTonieFileLabel,
                 exportTonieAudioButton, tonieAudioExportService, productNameField::getText, this::log);
+        new RowListGmeProductIds(stage, selectGmeFolderButton, selectedGmeFolderLabel,
+                listGmeProductIdsButton, tttoolService, this::log);
 
         ExpandableSubActions prepAudioPane = new ExpandableSubActions(
                 "Only prep audio", selectAudioFolderButton, selectedAudioFolderLabel,
@@ -104,7 +110,11 @@ public class MainWindow {
         ExpandableSubActions exportToniePane = new ExpandableSubActions(
                 "Export Tonie audio", selectTonieFileButton, selectedTonieFileLabel,
                 exportTonieAudioButton);
-        Accordion workflowPanes = new Accordion(prepAudioPane, createYamlPane, createGmePane, exportToniePane);
+        ExpandableSubActions listGmeProductIdsPane = new ExpandableSubActions(
+                "List GME Product IDs", selectGmeFolderButton, selectedGmeFolderLabel,
+                listGmeProductIdsButton);
+        Accordion workflowPanes = new Accordion(prepAudioPane, createYamlPane, createGmePane, exportToniePane,
+                listGmeProductIdsPane);
 
         VBox buttonBox = new VBox(10, rowInput, runRow, workflowPanes);
 
@@ -125,7 +135,7 @@ public class MainWindow {
 
         runButton.setOnAction(e -> runTool());
 
-        Scene scene = new Scene(root, 500, 350);
+        Scene scene = new Scene(root, 500, 400);
         stage.setTitle("TTTool Album Creator");
         stage.setScene(scene);
         stage.show();
