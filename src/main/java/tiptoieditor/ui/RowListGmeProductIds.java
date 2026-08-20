@@ -4,6 +4,7 @@ import javafx.application.Platform;
 import javafx.collections.ObservableList;
 import javafx.scene.control.Button;
 import javafx.scene.control.Label;
+import javafx.scene.control.ProgressIndicator;
 import javafx.stage.Stage;
 import service.tttool.TttoolService;
 
@@ -20,14 +21,16 @@ public class RowListGmeProductIds {
     private final TttoolService tttoolService;
     private final Consumer<String> logger;
     private final ObservableList<ProductIdTableRow> productIdRows;
+    private final ProgressIndicator spinner;
     private File selectedFolder;
 
     public RowListGmeProductIds(Stage stage, Button selectFolderButton, Label selectedFolderLabel,
-                                Button listProductIdsButton, TttoolService tttoolService,
+                                Button listProductIdsButton, ProgressIndicator spinner, TttoolService tttoolService,
                                 ObservableList<ProductIdTableRow> productIdRows, Consumer<String> logger) {
         this.selectedFolderLabel = selectedFolderLabel;
         this.tttoolService = tttoolService;
         this.productIdRows = productIdRows;
+        this.spinner = spinner;
         this.logger = logger;
         selectFolderButton.setOnAction(event -> selectFolder(stage));
         listProductIdsButton.setOnAction(event -> listProductIds());
@@ -51,6 +54,7 @@ public class RowListGmeProductIds {
         Path folder = selectedFolder.toPath();
         logger.accept("Scanning GME files in: " + folder.toAbsolutePath());
         productIdRows.clear();
+        spinner.setVisible(true);
         new Thread(() -> {
             try {
                 List<TttoolService.ProductIdResult> results = tttoolService.listProductIds(folder);
@@ -76,6 +80,8 @@ public class RowListGmeProductIds {
                 logger.accept("Product ID scan was interrupted.");
             } catch (Exception e) {
                 logger.accept("Could not list GME product IDs: " + e.getMessage());
+            } finally {
+                Platform.runLater(() -> spinner.setVisible(false));
             }
         }, "tttool-gme-product-ids").start();
     }

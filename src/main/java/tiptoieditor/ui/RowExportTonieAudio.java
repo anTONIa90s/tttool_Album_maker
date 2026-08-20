@@ -27,13 +27,15 @@ public class RowExportTonieAudio {
     private final Supplier<String> titleSupplier;
     private final Consumer<String> logger;
     private final Consumer<File> exportCompleteConsumer;
+    private final Consumer<String> statusUpdater;
     private File selectedTonieFile;
 
     public RowExportTonieAudio(Stage stage, Button selectTonieFileButton, Label selectedTonieFileLabel,
-                               Button exportButton, TonieAudioExportService exportService,
-                               TonieExportDestinationService exportDestinationService,
-                               Supplier<String> titleSupplier,
-                               Consumer<String> logger, Consumer<File> exportCompleteConsumer) {
+            Button exportButton, TonieAudioExportService exportService,
+            TonieExportDestinationService exportDestinationService,
+            Supplier<String> titleSupplier,
+            Consumer<String> logger, Consumer<File> exportCompleteConsumer,
+            Consumer<String> statusUpdater) {
         this.stage = stage;
         this.selectedTonieFileLabel = selectedTonieFileLabel;
         this.exportService = exportService;
@@ -41,6 +43,7 @@ public class RowExportTonieAudio {
         this.titleSupplier = titleSupplier;
         this.logger = logger;
         this.exportCompleteConsumer = exportCompleteConsumer;
+        this.statusUpdater = statusUpdater;
         selectTonieFileButton.setOnAction(e -> selectTonieFile());
         exportButton.setOnAction(e -> exportAudio());
     }
@@ -57,7 +60,10 @@ public class RowExportTonieAudio {
         }
     }
 
-    /** Sets the Tonie file used by both the export pane and the automatic Run workflow. */
+    /**
+     * Sets the Tonie file used by both the export pane and the automatic Run
+     * workflow.
+     */
     public void setSelectedTonieFile(File selectedTonieFile) {
         this.selectedTonieFile = selectedTonieFile;
         File parentDirectory = selectedTonieFile.getParentFile();
@@ -84,7 +90,10 @@ public class RowExportTonieAudio {
         runToolExportAudio(selectedTonieFile, outputDirectory, exportCompleteConsumer);
     }
 
-    /** Exports a known Tonie file to a known directory and continues on the JavaFX thread. */
+    /**
+     * Exports a known Tonie file to a known directory and continues on the JavaFX
+     * thread.
+     */
     public void runToolExportAudio(File inputFile, File outputDirectory, Consumer<File> onComplete) {
         if (inputFile == null || outputDirectory == null) {
             logger.accept("Please select a Tonie file and an output folder first.");
@@ -96,6 +105,7 @@ public class RowExportTonieAudio {
 
         String title = titleSupplier.get();
         logger.accept("Exporting chapter audio from: " + inputFile.getAbsolutePath());
+        statusUpdater.accept("Exporting Tonie audio fiiles...");
         new Thread(() -> {
             try {
                 var results = exportService.export(inputFile.toPath(), outputDirectory.toPath(), title);
@@ -103,11 +113,13 @@ public class RowExportTonieAudio {
                     logger.accept("Exported OGG: " + result.exportedFile().toAbsolutePath());
                 }
                 logger.accept("Exported " + results.size() + " OGG file(s), SHA-1: " + results.getFirst().audioSha1());
+                statusUpdater.accept("Exported Tonie audio fiiles. Done!");
                 if (onComplete != null) {
                     Platform.runLater(() -> onComplete.accept(outputDirectory));
                 }
             } catch (FileAlreadyExistsException e) {
-                logger.accept("Export skipped: the output file already exists. Choose another folder or remove it first.");
+                logger.accept(
+                        "Export skipped: the output file already exists. Choose another folder or remove it first.");
             } catch (Exception e) {
                 logger.accept("Could not export Tonie audio: " + e.getMessage());
             }

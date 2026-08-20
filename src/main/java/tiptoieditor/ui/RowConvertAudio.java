@@ -21,18 +21,23 @@ public class RowConvertAudio {
     private final AudioConvertService audioConvertService;
     private final Supplier<String> albumNameSupplier;
     private final Consumer<String> logger;
-    private Consumer<File> selectedAudioFolderConsumer = folder -> { };
-    private Consumer<File> audioPreparedConsumer = folder -> { };
+    private final Consumer<String> statusUpdater;
+    private Consumer<File> selectedAudioFolderConsumer = folder -> {
+    };
+    private Consumer<File> audioPreparedConsumer = folder -> {
+    };
     private File selectedAudioFolder;
 
     public RowConvertAudio(Stage stage, Button selectAudioFolderButton, Label selectedAudioFolderLabel,
             Button convertButton, AudioCopyService audioCopyService,
-            AudioConvertService audioConvertService, Supplier<String> albumNameSupplier, Consumer<String> logger) {
+            AudioConvertService audioConvertService, Supplier<String> albumNameSupplier, Consumer<String> logger,
+            Consumer<String> statusUpdater) {
         this.selectedAudioFolderLabel = selectedAudioFolderLabel;
         this.audioCopyService = audioCopyService;
         this.audioConvertService = audioConvertService;
         this.albumNameSupplier = albumNameSupplier;
         this.logger = logger;
+        this.statusUpdater = statusUpdater;
         selectAudioFolderButton.setOnAction(e -> selectAudioFolder(stage));
         convertButton.setOnAction(e -> runToolCopyAndConvert());
     }
@@ -60,6 +65,7 @@ public class RowConvertAudio {
         String resolvedAlbumName = albumName == null || albumName.isBlank() ? "tttoolAlbum" : albumName.trim();
 
         logger.accept("Preparing folder structure for album: " + resolvedAlbumName);
+        statusUpdater.accept("Prepping audio fiiles...");
 
         new Thread(() -> {
             File audioFolder = audioCopyService.prepareAudioFolder(sourceAudioFolder, resolvedAlbumName);
@@ -68,13 +74,21 @@ public class RowConvertAudio {
         }, "audio-convert").start();
     }
 
-    /** Processes an existing album audio directory and then continues on the JavaFX thread. */
+    /**
+     * Processes an existing album audio directory and then continues on the JavaFX
+     * thread.
+     */
     public void runToolProcessAudio(File audioFolder, Consumer<File> onComplete) {
+        statusUpdater.accept("Prepping audio fiiles...");
         new Thread(() -> processAudioFolder(audioFolder, onComplete), "audio-process").start();
     }
 
-    /** Copies an existing album's exported audio into {@code audio} and processes it. */
+    /**
+     * Copies an existing album's exported audio into {@code audio} and processes
+     * it.
+     */
     public void runToolCopyAndConvertForExistingAlbum(File albumFolder, Consumer<File> onComplete) {
+        statusUpdater.accept("Prepping audio fiiles...");
         new Thread(() -> {
             File audioFolder = audioCopyService.prepareAudioFolderForExistingAlbum(albumFolder);
             logger.accept("Audio copied to: " + audioFolder.getAbsolutePath());
@@ -87,6 +101,7 @@ public class RowConvertAudio {
         audioConvertService.processFolder(audioFolder);
 
         logger.accept("Audio successfully processed.");
+        statusUpdater.accept("Prepped audio fiiles. Done!");
         Platform.runLater(() -> {
             audioPreparedConsumer.accept(audioFolder);
             if (onComplete != null) {
@@ -110,7 +125,10 @@ public class RowConvertAudio {
         this.selectedAudioFolderConsumer = selectedAudioFolderConsumer;
     }
 
-    /** Registers a listener that receives the {@code audio} folder after preparation is complete. */
+    /**
+     * Registers a listener that receives the {@code audio} folder after preparation
+     * is complete.
+     */
     public void setOnAudioPrepared(Consumer<File> audioPreparedConsumer) {
         this.audioPreparedConsumer = audioPreparedConsumer;
     }

@@ -36,9 +36,7 @@ public class AlbumWorkflowContinuation {
         rowCreateYaml.setSelectedAlbumFolder(albumFolder);
         logger.accept("Selected album folder: " + albumFolder.getAbsolutePath());
 
-        if (rowCreateYaml.runToolCreateYaml()) {
-            rowYamlToGme.runToolCreateGmeFromYaml();
-        }
+        rowCreateYaml.runToolCreateYaml(generatedYamlFile -> rowYamlToGme.runToolCreateGmeFromYaml());
     }
 
     public void continueFromExistingAlbum(File albumFolder, File yamlFile) {
@@ -50,9 +48,7 @@ public class AlbumWorkflowContinuation {
             return;
         }
 
-        if (rowCreateYaml.runToolCreateYaml()) {
-            rowYamlToGme.runToolCreateGmeFromYaml();
-        }
+        rowCreateYaml.runToolCreateYaml(generatedYamlFile -> rowYamlToGme.runToolCreateGmeFromYaml());
     }
 
     public void updateCreateNewYamlToggle() {

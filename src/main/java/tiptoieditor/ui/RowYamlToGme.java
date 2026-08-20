@@ -20,15 +20,18 @@ public class RowYamlToGme {
     private final TttoolService tttoolService;
     private final AudioFileNameService audioFileNameService;
     private final Consumer<String> logger;
+    private final Consumer<String> statusUpdater;
     private File selectedYamlFile;
 
     public RowYamlToGme(Stage stage, Button selectYamlFileButton, Label selectedYamlFileLabel,
-                        Button createGmeButton, TttoolService tttoolService,
-                        AudioFileNameService audioFileNameService, Consumer<String> logger) {
+            Button createGmeButton, TttoolService tttoolService,
+            AudioFileNameService audioFileNameService, Consumer<String> logger,
+            Consumer<String> statusUpdater) {
         this.selectedYamlFileLabel = selectedYamlFileLabel;
         this.tttoolService = tttoolService;
         this.audioFileNameService = audioFileNameService;
         this.logger = logger;
+        this.statusUpdater = statusUpdater;
         selectYamlFileButton.setOnAction(e -> loadYamlFile(stage));
         createGmeButton.setOnAction(e -> runToolCreateGmeFromYaml());
     }
@@ -59,6 +62,7 @@ public class RowYamlToGme {
 
         File yamlFile = selectedYamlFile;
         logger.accept("Creating GME from: " + yamlFile.getAbsolutePath());
+        statusUpdater.accept("Creating Gme...");
 
         new Thread(() -> {
             try {
@@ -67,6 +71,7 @@ public class RowYamlToGme {
                 logger.accept("Audio files renamed in: " + audioFolder.getAbsolutePath());
                 String output = tttoolService.assemble(yamlFile.toPath());
                 Platform.runLater(() -> {
+                    statusUpdater.accept("Created Gme. Done!");
                     logger.accept(output.isBlank() ? "tttool finished successfully." : output);
                 });
             } catch (Exception e) {

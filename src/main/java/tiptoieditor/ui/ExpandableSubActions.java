@@ -30,7 +30,13 @@ public class ExpandableSubActions extends TitledPane {
      */
     public ExpandableSubActions(String title, Button loadButton, Label selectedItemLabel,
                                 Button actionButton, Node output) {
-        super(title, createPaddedContent(loadButton, selectedItemLabel, actionButton, output));
+        this(title, loadButton, selectedItemLabel, actionButton, output, null);
+    }
+
+    /** Creates an action pane with an optional indicator immediately before its action button. */
+    public ExpandableSubActions(String title, Button loadButton, Label selectedItemLabel,
+                                Button actionButton, Node output, Node actionIndicator) {
+        super(title, createPaddedContent(loadButton, selectedItemLabel, actionButton, output, actionIndicator));
         this.loadButton = loadButton;
         this.selectedItemLabel = selectedItemLabel;
         this.actionButton = actionButton;
@@ -39,11 +45,15 @@ public class ExpandableSubActions extends TitledPane {
     }
 
     private static VBox createPaddedContent(Button loadButton, Label selectedItemLabel,
-                                            Button actionButton, Node output) {
+                                            Button actionButton, Node output, Node actionIndicator) {
         Region spacer = new Region();
         HBox.setHgrow(spacer, Priority.ALWAYS);
 
-        HBox controls = new HBox(10, loadButton, selectedItemLabel, spacer, actionButton);
+        HBox controls = new HBox(10, loadButton, selectedItemLabel, spacer);
+        if (actionIndicator != null) {
+            controls.getChildren().add(actionIndicator);
+        }
+        controls.getChildren().add(actionButton);
         controls.setMaxWidth(Double.MAX_VALUE);
 
         VBox contentBox = new VBox(10, controls);

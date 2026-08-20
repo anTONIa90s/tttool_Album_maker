@@ -7,6 +7,7 @@ import javafx.collections.ObservableList;
 import javafx.scene.control.Accordion;
 import javafx.scene.control.Button;
 import javafx.scene.control.Label;
+import javafx.scene.control.ProgressIndicator;
 import javafx.scene.control.TableColumn;
 import javafx.scene.control.TableView;
 import javafx.scene.control.TextArea;
@@ -34,6 +35,8 @@ import java.io.File;
 public class MainWindow {
 
         private TextArea outputArea;
+        private Label workflowStatusLabel;
+        private ProgressIndicator workflowStatusSpinner;
 
         private TextField productNameField;
         private TextField productIdField;
@@ -104,19 +107,24 @@ public class MainWindow {
                 Button selectGmeFolderButton = new Button("Select GME Folder");
                 Label selectedGmeFolderLabel = new Label("No folder selected");
                 Button listGmeProductIdsButton = new Button("List Product IDs");
+                ProgressIndicator listGmeProductIdsSpinner = new ProgressIndicator();
+                listGmeProductIdsSpinner.setPrefSize(16, 16);
+                listGmeProductIdsSpinner.setMaxSize(16, 16);
+                listGmeProductIdsSpinner.setVisible(false);
                 ObservableList<RowListGmeProductIds.ProductIdTableRow> productIdRows = FXCollections
                                 .observableArrayList();
                 TableView<RowListGmeProductIds.ProductIdTableRow> productIdTable = createProductIdTable(productIdRows);
 
                 rowConvertAudio = new RowConvertAudio(stage, selectAudioFolderButton, selectedAudioFolderLabel,
                                 convertAudioButton, audioCopyService, audioConvertService,
-                                productNameField::getText, this::log);
+                                productNameField::getText, this::log, this::setWorkflowStatus);
                 selectDirectoryButton.setOnAction(e -> rowConvertAudio.selectAudioFolder(stage));
                 rowYamlToGme = new RowYamlToGme(stage, selectYamlFileButton, selectedYamlFileLabel,
-                                createGmeButton, tttoolService, audioFileNameService, this::log);
+                                createGmeButton, tttoolService, audioFileNameService, this::log,
+                                this::setWorkflowStatus);
                 rowCreateYaml = new RowCreateYaml(stage, selectAlbumFolderButton, selectedAlbumFolderLabel,
                                 createYamlButton, productIdField::getText,
-                                rowYamlToGme::setSelectedYamlFile, this::log);
+                                rowYamlToGme::setSelectedYamlFile, this::log, this::setWorkflowStatus);
                 rowConvertAudio.setOnAudioPrepared(audioFolder -> {
                         File albumFolder = audioFolder.getParentFile();
                         rowConvertAudio.setSelectedAudioFolder(albumFolder);
@@ -124,7 +132,8 @@ public class MainWindow {
                 });
                 rowExportTonieAudio = new RowExportTonieAudio(stage, selectTonieFileButton, selectedTonieFileLabel,
                                 exportTonieAudioButton, tonieAudioExportService, tonieExportDestinationService,
-                                productNameField::getText, this::log, rowConvertAudio::setSelectedAudioFolder);
+                                productNameField::getText, this::log, rowConvertAudio::setSelectedAudioFolder,
+                                this::setWorkflowStatus);
                 albumWorkflowContinuation = new AlbumWorkflowContinuation(rowCreateYaml, rowYamlToGme,
                                 rowExportTonieAudio, createNewYamlToggle,
                                 rowConvertAudio::getSelectedAudioFolder, workflowResolver, this::log);
@@ -134,7 +143,8 @@ public class MainWindow {
                         albumWorkflowContinuation.updateSelectedFolderControls();
                 });
                 new RowListGmeProductIds(stage, selectGmeFolderButton, selectedGmeFolderLabel,
-                                listGmeProductIdsButton, tttoolService, productIdRows, this::log);
+                                listGmeProductIdsButton, listGmeProductIdsSpinner, tttoolService, productIdRows,
+                                this::log);
 
                 ExpandableSubActions exportToniePane = new ExpandableSubActions(
                                 "Only export Tonie audio", selectTonieFileButton, selectedTonieFileLabel,
@@ -150,11 +160,19 @@ public class MainWindow {
                                 createGmeButton);
                 ExpandableSubActions listGmeProductIdsPane = new ExpandableSubActions(
                                 "List GME Product IDs", selectGmeFolderButton, selectedGmeFolderLabel,
-                                listGmeProductIdsButton, productIdTable);
+                                listGmeProductIdsButton, productIdTable, listGmeProductIdsSpinner);
                 Accordion workflowPanes = new Accordion(exportToniePane, prepAudioPane, createYamlPane, createGmePane,
                                 listGmeProductIdsPane);
 
-                VBox buttonBox = new VBox(10, rowInput, runRow, workflowPanes);
+                workflowStatusLabel = new Label();
+                workflowStatusLabel.setMinHeight(20);
+                workflowStatusSpinner = new ProgressIndicator();
+                workflowStatusSpinner.setPrefSize(16, 16);
+                workflowStatusSpinner.setMaxSize(16, 16);
+                workflowStatusSpinner.setVisible(false);
+                workflowStatusSpinner.setManaged(false);
+                HBox workflowStatusRow = new HBox(6, workflowStatusSpinner, workflowStatusLabel);
+                VBox buttonBox = new VBox(10, rowInput, runRow, workflowPanes, workflowStatusRow);
 
                 outputArea = new TextArea();
                 outputArea.setEditable(false);
@@ -253,6 +271,20 @@ public class MainWindow {
                         appendMessage.run();
                 } else {
                         javafx.application.Platform.runLater(appendMessage);
+                }
+        }
+
+        private void setWorkflowStatus(String message) {
+                Runnable updateStatus = () -> {
+                        boolean isRunning = message != null && message.endsWith("...");
+                        workflowStatusSpinner.setVisible(isRunning);
+                        workflowStatusSpinner.setManaged(isRunning);
+                        workflowStatusLabel.setText(message);
+                };
+                if (javafx.application.Platform.isFxApplicationThread()) {
+                        updateStatus.run();
+                } else {
+                        javafx.application.Platform.runLater(updateStatus);
                 }
         }
 }

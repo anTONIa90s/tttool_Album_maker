@@ -1,5 +1,6 @@
 package tiptoieditor.ui;
 
+import javafx.application.Platform;
 import javafx.scene.control.Button;
 import javafx.scene.control.Label;
 import javafx.stage.Stage;
@@ -18,15 +19,18 @@ public class RowCreateYaml {
     private final Supplier<String> productIdSupplier;
     private final Consumer<File> yamlFileConsumer;
     private final Consumer<String> logger;
+    private final Consumer<String> statusUpdater;
     private File selectedAlbumFolder;
 
     public RowCreateYaml(Stage stage, Button selectAlbumFolderButton, Label selectedAlbumFolderLabel,
-                         Button createYamlButton, Supplier<String> productIdSupplier,
-                         Consumer<File> yamlFileConsumer, Consumer<String> logger) {
+            Button createYamlButton, Supplier<String> productIdSupplier,
+            Consumer<File> yamlFileConsumer, Consumer<String> logger,
+            Consumer<String> statusUpdater) {
         this.selectedAlbumFolderLabel = selectedAlbumFolderLabel;
         this.productIdSupplier = productIdSupplier;
         this.yamlFileConsumer = yamlFileConsumer;
         this.logger = logger;
+        this.statusUpdater = statusUpdater;
         selectAlbumFolderButton.setOnAction(e -> selectAlbumFolder(stage));
         createYamlButton.setOnAction(e -> runToolCreateYaml());
     }
@@ -48,27 +52,50 @@ public class RowCreateYaml {
         selectedAlbumFolderLabel.setText(selectedAlbumFolder.getName());
     }
 
-    public boolean runToolCreateYaml() {
+    public void runToolCreateYaml() {
+        runToolCreateYaml(null);
+    }
+
+    /**
+     * Generates YAML in the background and invokes {@code onComplete} on the JavaFX
+     * thread.
+     */
+    public void runToolCreateYaml(Consumer<File> onComplete) {
         String productIdText = productIdSupplier.get().trim();
         if (productIdText.isEmpty()) {
             logger.accept("Please enter a product ID.");
-            return false;
+            return;
         } else if (selectedAlbumFolder == null) {
             logger.accept("Please select a folder first.");
-            return false;
+            return;
         }
 
+        int productId;
         try {
-            logger.accept("Creating YAML...");
-            GenerateYamlService.GeneratedYamlFiles generatedFiles = new GenerateYamlService()
-                    .generate(Integer.parseInt(productIdText), selectedAlbumFolder);
-            File yamlFile = generatedFiles.yamlFile().toFile();
-            yamlFileConsumer.accept(yamlFile);
-            logger.accept("YAML created: " + yamlFile.getAbsolutePath());
-            return true;
-        } catch (Exception e) {
-            logger.accept("Could not create YAML: " + e.getMessage());
-            return false;
+            productId = Integer.parseInt(productIdText);
+        } catch (NumberFormatException e) {
+            logger.accept("Please enter a valid product ID.");
+            return;
         }
+        File albumFolder = selectedAlbumFolder;
+        statusUpdater.accept("Creating Yaml...");
+        new Thread(() -> {
+            try {
+                logger.accept("Creating YAML...");
+                GenerateYamlService.GeneratedYamlFiles generatedFiles = new GenerateYamlService()
+                        .generate(productId, albumFolder);
+                File yamlFile = generatedFiles.yamlFile().toFile();
+                logger.accept("YAML created: " + yamlFile.getAbsolutePath());
+                Platform.runLater(() -> {
+                    yamlFileConsumer.accept(yamlFile);
+                    statusUpdater.accept("Created Yaml. Done!");
+                    if (onComplete != null) {
+                        onComplete.accept(yamlFile);
+                    }
+                });
+            } catch (Exception e) {
+                logger.accept("Could not create YAML: " + e.getMessage());
+            }
+        }, "yaml-create").start();
     }
 }
