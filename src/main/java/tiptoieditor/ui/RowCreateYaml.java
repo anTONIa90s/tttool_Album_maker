@@ -67,9 +67,11 @@ public class RowCreateYaml {
         String productIdText = productIdSupplier.get().trim();
         if (productIdText.isEmpty()) {
             logger.accept("Please enter a product ID.");
+            statusUpdater.accept("Please enter a product ID.");
             return;
         } else if (selectedAlbumFolder == null) {
             logger.accept("Please select a folder first.");
+            statusUpdater.accept("Please select a folder first.");
             return;
         }
 
@@ -78,6 +80,7 @@ public class RowCreateYaml {
             productId = Integer.parseInt(productIdText);
         } catch (NumberFormatException e) {
             logger.accept("Please enter a valid product ID.");
+            statusUpdater.accept("Please enter a valid product ID.");
             return;
         }
         File albumFolder = selectedAlbumFolder;

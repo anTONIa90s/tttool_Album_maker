@@ -49,6 +49,10 @@ public class RowCreateOidTable {
     }
 
     public void runToolCreateOidTable() {
+        runToolCreateOidTable(null);
+    }
+
+    public void runToolCreateOidTable(Runnable onComplete) {
         if (selectedAlbumFolder == null) {
             logger.accept("Please select an album folder first.");
             return;
@@ -69,6 +73,9 @@ public class RowCreateOidTable {
                 Platform.runLater(() -> {
                     statusUpdater.accept("Created OID table. Done!");
                     logger.accept(output.isBlank() ? "tttool finished successfully." : output);
+                    if (onComplete != null) {
+                        onComplete.run();
+                    }
                 });
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();

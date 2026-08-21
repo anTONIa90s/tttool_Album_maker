@@ -145,7 +145,8 @@ public class MainWindow {
                 albumWorkflowContinuation = new AlbumWorkflowContinuation(rowCreateYaml, rowYamlToGme,
                                 rowCreateOidTable,
                                 rowExportTonieAudio,
-                                rowConvertAudio::getSelectedAudioFolder, workflowResolver, this::log);
+                                rowConvertAudio::getSelectedAudioFolder, workflowResolver, this::log,
+                                productNameField::getText, this::setWorkflowStatus);
                 rowConvertAudio.setOnSelectedAudioFolder(folder -> {
                         selectedFolderPathLabel.setText(folder.getAbsolutePath());
                         productNameField.setText(folder.getName());
