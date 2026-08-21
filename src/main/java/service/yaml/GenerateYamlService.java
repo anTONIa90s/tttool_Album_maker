@@ -36,6 +36,20 @@ public class GenerateYamlService {
     }
 
     /**
+     * Generates YAML files using the supplied title instead of deriving it from
+     * the album directory name.
+     *
+     * @param productId the product ID written to the main YAML file
+     * @param albumDirectory directory that contains the {@code audio} directory
+     * @param title the title used for generated filenames and YAML metadata
+     * @return the paths of the generated main YAML and code YAML files
+     * @throws IOException if the audio directory cannot be read or a file cannot be written
+     */
+    public GeneratedYamlFiles generate(int productId, File albumDirectory, String title) throws IOException {
+        return generate(productId, albumDirectory.toPath(), title);
+    }
+
+    /**
      * Generates the tttool YAML and script-code YAML files.
      *
      * @param productId the product ID written to the main YAML file
@@ -44,6 +58,20 @@ public class GenerateYamlService {
      * @throws IOException if the audio directory cannot be read or a file cannot be written
      */
     public GeneratedYamlFiles generate(int productId, Path albumDirectory) throws IOException {
+        return generate(productId, albumDirectory, null);
+    }
+
+    /**
+     * Generates YAML files using the supplied title instead of deriving it from
+     * the album directory name.
+     *
+     * @param productId the product ID written to the main YAML file
+     * @param albumDirectory directory that contains the {@code audio} directory
+     * @param title the title used for generated filenames and YAML metadata; blank uses the directory name
+     * @return the paths of the generated main YAML and code YAML files
+     * @throws IOException if the audio directory cannot be read or a file cannot be written
+     */
+    public GeneratedYamlFiles generate(int productId, Path albumDirectory, String title) throws IOException {
         Path normalizedDirectory = albumDirectory.toAbsolutePath().normalize();
         Path audioDirectory = normalizedDirectory.resolve("audio");
 
@@ -54,12 +82,14 @@ public class GenerateYamlService {
         List<Path> audioFiles = findAudioFiles(audioDirectory);
         int trackCount = audioFiles.size();
         int digits = String.valueOf(trackCount).length();
-        String title = albumTitle(normalizedDirectory.getFileName().toString());
+        String resolvedTitle = title == null || title.isBlank()
+                ? albumTitle(normalizedDirectory.getFileName().toString())
+                : title.trim();
 
-        Path yamlFile = normalizedDirectory.resolve(title + ".yaml");
-        Path codesFile = normalizedDirectory.resolve(title + ".codes.yaml");
+        Path yamlFile = normalizedDirectory.resolve(resolvedTitle + ".yaml");
+        Path codesFile = normalizedDirectory.resolve(resolvedTitle + ".codes.yaml");
 
-        Files.write(yamlFile, generateTttoolScript(productId, title, trackCount, digits), StandardCharsets.UTF_8);
+        Files.write(yamlFile, generateTttoolScript(productId, resolvedTitle, trackCount, digits), StandardCharsets.UTF_8);
         Files.write(codesFile, generateScriptCodes(digits), StandardCharsets.UTF_8);
 
         return new GeneratedYamlFiles(yamlFile, codesFile);

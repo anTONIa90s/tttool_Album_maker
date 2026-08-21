@@ -17,6 +17,7 @@ public class RowCreateYaml {
 
     private final Label selectedAlbumFolderLabel;
     private final Supplier<String> productIdSupplier;
+    private final Supplier<String> albumTitleSupplier;
     private final Consumer<File> yamlFileConsumer;
     private final Consumer<String> logger;
     private final Consumer<String> statusUpdater;
@@ -25,11 +26,12 @@ public class RowCreateYaml {
     private String cancelText = "YAML creation cancelled.";
 
     public RowCreateYaml(Stage stage, Button selectAlbumFolderButton, Label selectedAlbumFolderLabel,
-            Button createYamlButton, Supplier<String> productIdSupplier,
+            Button createYamlButton, Supplier<String> productIdSupplier, Supplier<String> albumTitleSupplier,
             Consumer<File> yamlFileConsumer, Consumer<String> logger,
             Consumer<String> statusUpdater, WorkflowTaskManager taskManager) {
         this.selectedAlbumFolderLabel = selectedAlbumFolderLabel;
         this.productIdSupplier = productIdSupplier;
+        this.albumTitleSupplier = albumTitleSupplier;
         this.yamlFileConsumer = yamlFileConsumer;
         this.logger = logger;
         this.statusUpdater = statusUpdater;
@@ -89,7 +91,7 @@ public class RowCreateYaml {
             try {
                 logger.accept("Creating YAML...");
                 GenerateYamlService.GeneratedYamlFiles generatedFiles = new GenerateYamlService()
-                        .generate(productId, albumFolder);
+                        .generate(productId, albumFolder, albumTitleSupplier.get());
                 if (Thread.currentThread().isInterrupted()) {
                     logger.accept(cancelText);
                     statusUpdater.accept(cancelText);
