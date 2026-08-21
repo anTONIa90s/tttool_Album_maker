@@ -134,6 +134,9 @@ public class RowExportTonieAudio {
                 logger.accept(
                         "Export skipped: the output file already exists. Choose another folder or remove it first.");
                 statusUpdater.accept("Tonie audio export skipped.");
+                if (onComplete != null) {
+                    Platform.runLater(() -> onComplete.accept(outputDirectory));
+                }
             } catch (Exception e) {
                 logger.accept("Could not export Tonie audio: " + e.getMessage());
                 statusUpdater.accept("Tonie audio export failed.");

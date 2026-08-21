@@ -28,6 +28,7 @@ import service.tonie.TonieAudioExportService;
 import service.tonie.TonieExportDestinationService;
 import service.tttool.TttoolService;
 import service.workflow.AlbumFolderWorkflowResolver;
+import org.controlsfx.control.ToggleSwitch;
 
 import java.io.File;
 
@@ -39,6 +40,7 @@ public class MainWindow {
 
         private TextField productNameField;
         private TextField productIdField;
+        private ToggleSwitch appendProductIdToggle;
         private RowConvertAudio rowConvertAudio;
         private RowCreateYaml rowCreateYaml;
         private RowYamlToGme rowYamlToGme;
@@ -70,10 +72,15 @@ public class MainWindow {
                 productIdField.setPrefColumnCount(5);
                 productIdField.setPromptText("Product ID");
 
+                appendProductIdToggle = new ToggleSwitch("Append ID");
+                appendProductIdToggle.setTooltip(new javafx.scene.control.Tooltip(
+                                "Append the Product ID to the album name (for example, name_890)"));
+
                 Button selectDirectoryButton = new Button("Select Directory");
                 Label selectedFolderPathLabel = new Label("No folder selected");
                 selectedFolderPathLabel.setStyle("-fx-text-fill: gray;");
-                HBox inputControlsRow = new HBox(10, selectDirectoryButton, productNameField, productIdField);
+                HBox inputControlsRow = new HBox(10, selectDirectoryButton, productNameField, productIdField,
+                                appendProductIdToggle);
                 inputControlsRow.setMaxWidth(Double.MAX_VALUE);
                 HBox.setHgrow(productNameField, Priority.ALWAYS);
                 VBox rowInput = new VBox(4, selectedFolderPathLabel, inputControlsRow);
@@ -120,7 +127,7 @@ public class MainWindow {
 
                 rowConvertAudio = new RowConvertAudio(stage, selectAudioFolderButton, selectedAudioFolderLabel,
                                 convertAudioButton, audioCopyService, audioConvertService,
-                                productNameField::getText, this::log, this::setWorkflowStatus, taskManager);
+                                this::getProductName, this::log, this::setWorkflowStatus, taskManager);
                 selectDirectoryButton.setOnAction(e -> rowConvertAudio.selectAudioFolder(stage));
                 rowYamlToGme = new RowYamlToGme(stage, selectYamlFileButton, selectedYamlFileLabel,
                                 createGmeButton, tttoolService, audioFileNameService, this::log,
@@ -140,13 +147,13 @@ public class MainWindow {
                 });
                 rowExportTonieAudio = new RowExportTonieAudio(stage, selectTonieFileButton, selectedTonieFileLabel,
                                 exportTonieAudioButton, tonieAudioExportService, tonieExportDestinationService,
-                                productNameField::getText, this::log, rowConvertAudio::setSelectedAudioFolder,
+                                this::getProductName, this::log, rowConvertAudio::setSelectedAudioFolder,
                                 this::setWorkflowStatus, taskManager);
                 albumWorkflowContinuation = new AlbumWorkflowContinuation(rowCreateYaml, rowYamlToGme,
                                 rowCreateOidTable,
                                 rowExportTonieAudio,
                                 rowConvertAudio::getSelectedAudioFolder, workflowResolver, this::log,
-                                productNameField::getText, this::setWorkflowStatus);
+                                this::getProductName, this::setWorkflowStatus);
                 rowConvertAudio.setOnSelectedAudioFolder(folder -> {
                         selectedFolderPathLabel.setText(folder.getAbsolutePath());
                         productNameField.setText(folder.getName());
@@ -240,7 +247,7 @@ public class MainWindow {
                                 File exportFolder;
                                 try {
                                         exportFolder = tonieExportDestinationService.createExportFolder(
-                                                        resolution.tonieFile(), productNameField.getText());
+                                                        resolution.tonieFile(), getProductName());
                                 } catch (java.io.IOException e) {
                                         log("Could not create Tonie export folder: " + e.getMessage());
                                         return;
@@ -282,6 +289,19 @@ public class MainWindow {
                 table.setPrefHeight(200);
                 table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY_FLEX_NEXT_COLUMN);
                 return table;
+        }
+
+        private String getProductName() {
+                String productName = productNameField.getText().trim();
+                if (!appendProductIdToggle.isSelected()) {
+                        return productName;
+                }
+
+                String productId = productIdField.getText().trim();
+                if (productId.isEmpty()) {
+                        return productName;
+                }
+                return (productName.isEmpty() ? "tttoolAlbum" : productName) + "_" + productId;
         }
 
         private void log(String message) {
