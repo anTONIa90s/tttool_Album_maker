@@ -1,6 +1,7 @@
 package tiptoieditor.ui;
 
 import javafx.geometry.Insets;
+import javafx.geometry.Pos;
 import javafx.scene.Scene;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
@@ -39,8 +40,9 @@ import java.util.Locale;
 
 public class MainWindow {
 
-        private static final String STATUS_SUCCESS_STYLE = "-fx-text-fill: #2e7d32;";
-        private static final String STATUS_ERROR_STYLE = "-fx-text-fill: #b3261e;";
+        private static final String STATUS_BASE_STYLE = "-fx-background-color: #f5f5f5;";
+        private static final String STATUS_SUCCESS_STYLE = STATUS_BASE_STYLE + " -fx-text-fill: #2e7d32;";
+        private static final String STATUS_ERROR_STYLE = STATUS_BASE_STYLE + " -fx-text-fill: #b3261e;";
 
         private TextArea outputArea;
         private StatusBar workflowStatusBar;
@@ -83,20 +85,33 @@ public class MainWindow {
                                 Validator.createPredicateValidator(MainWindow::isValidProductId,
                                                 "Enter a Product ID between 0 and " + Integer.MAX_VALUE + "."));
 
-                appendProductIdToggle = new ToggleSwitch("Append ID");
+                appendProductIdToggle = new ToggleSwitch();
                 appendProductIdToggle.setTooltip(new javafx.scene.control.Tooltip(
-                                "Append the Product ID to the album name (for example, name_890)"));
+                                "will add product ID to album name"));
 
                 Button selectDirectoryButton = new Button("Select Directory");
+                selectDirectoryButton.setPrefHeight(40);
                 Label selectedFolderPathLabel = new Label("No folder selected");
                 selectedFolderPathLabel.setStyle("-fx-text-fill: gray;");
-                HBox inputControlsRow = new HBox(10, selectDirectoryButton, productNameField, productIdField,
-                                appendProductIdToggle);
+                Label productNameLabel = new Label("Album Name");
+                productNameLabel.setStyle("-fx-font-weight: bold;");
+                Label productIdLabel = new Label("Product ID");
+                productIdLabel.setStyle("-fx-font-weight: bold;");
+                VBox productNameControl = new VBox(4, productNameLabel, productNameField);
+                VBox productIdControl = new VBox(4, productIdLabel, productIdField);
+                VBox appendProductIdControl = new VBox(4, new Label("append"), appendProductIdToggle);
+                appendProductIdControl.setAlignment(Pos.BOTTOM_LEFT);
+                VBox selectDirectoryControl = new VBox(selectDirectoryButton);
+                selectDirectoryControl.setAlignment(Pos.BOTTOM_LEFT);
+                HBox inputControlsRow = new HBox(10, selectDirectoryControl, productNameControl, productIdControl,
+                                appendProductIdControl);
                 inputControlsRow.setMaxWidth(Double.MAX_VALUE);
-                HBox.setHgrow(productNameField, Priority.ALWAYS);
+                HBox.setHgrow(productNameControl, Priority.ALWAYS);
+                productNameControl.setMaxWidth(Double.MAX_VALUE);
                 VBox rowInput = new VBox(4, selectedFolderPathLabel, inputControlsRow);
 
                 Button runButton = new Button("Run tttool");
+                runButton.setPrefHeight(50);
                 Button cancelButton = new Button("Cancel");
                 cancelButton.setVisible(false);
                 cancelButton.setManaged(false);
@@ -200,7 +215,9 @@ public class MainWindow {
 
                 workflowStatusBar = new StatusBar();
                 workflowStatusBar.setProgress(0);
-                VBox buttonBox = new VBox(10, rowInput, runRow, workflowPanes, workflowStatusBar);
+                workflowStatusBar.setText("");
+                workflowStatusBar.setStyle(STATUS_BASE_STYLE);
+                VBox buttonBox = new VBox(10, rowInput, runRow, workflowStatusBar, workflowPanes);
 
                 outputArea = new TextArea();
                 outputArea.setEditable(false);
@@ -237,6 +254,7 @@ public class MainWindow {
                 stage.setTitle("TTTool Album Creator");
                 stage.setScene(scene);
                 stage.show();
+                appendProductIdToggle.setPrefWidth(appendProductIdToggle.minWidth(-1));
 
                 javafx.application.Platform.runLater(root::requestFocus);
         }
@@ -385,7 +403,7 @@ public class MainWindow {
 
         private static String statusStyle(String message, boolean isRunning) {
                 if (isRunning || message == null) {
-                        return "";
+                        return STATUS_BASE_STYLE;
                 }
 
                 String normalizedMessage = message.toLowerCase(Locale.ROOT);
@@ -396,6 +414,6 @@ public class MainWindow {
                                 || normalizedMessage.contains("skipped")) {
                         return STATUS_ERROR_STYLE;
                 }
-                return normalizedMessage.contains("done!") ? STATUS_SUCCESS_STYLE : "";
+                return normalizedMessage.contains("done!") ? STATUS_SUCCESS_STYLE : STATUS_BASE_STYLE;
         }
 }
