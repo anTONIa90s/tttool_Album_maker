@@ -1,0 +1,183 @@
+/* Warm, raised controls for the album creator. */
+.root {
+    -fx-font-family: "Segoe UI", Arial, sans-serif;
+    -fx-background-color: linear-gradient(to bottom, #ffc36a 0%, #f28a27 52%, #df6815 100%);
+    -fx-text-fill: #45230d;
+}
+
+.label {
+    -fx-text-fill: #45230d;
+}
+
+.button {
+    -fx-background-color: linear-gradient(to bottom, #fff1d4 0%, #ffe5ad 46%, #ffc45a 100%);
+    -fx-background-radius: 8;
+    -fx-border-color: #8d430b;
+    -fx-border-radius: 8;
+    -fx-border-width: 1;
+    -fx-padding: 0.58em 1.1em 0.68em 1.1em;
+    -fx-text-fill: #4a2407;
+    -fx-font-weight: bold;
+}
+
+.button:hover {
+    -fx-background-color: linear-gradient(to bottom, #fff0c8 0%, #ffd06d 46%, #eb881f 100%);
+}
+
+.button:focused {
+    -fx-border-color: #713000, #fff1c9;
+    -fx-border-width: 1, 1;
+    -fx-border-insets: 0, 2;
+    -fx-border-radius: 8, 6;
+}
+
+.button:armed {
+    -fx-background-color: linear-gradient(to bottom, #d96b12 0%, #f3a134 100%);
+    -fx-effect: dropshadow(gaussian, rgba(89, 39, 5, 0.30), 1, 0, 0, 0);
+    -fx-translate-y: 2;
+}
+
+.button:disabled {
+    -fx-opacity: 0.65;
+    -fx-effect: none;
+}
+
+.accordion>.titled-pane,
+.titled-pane {
+    -fx-effect: dropshadow(gaussian, rgba(89, 39, 5, 0.34), 2, 0, 0, 2);
+}
+
+.titled-pane>.title {
+    -fx-background-color: linear-gradient(to bottom, #fff1d4 0%, #ffe5ad 46%, #ffc45a 100%);
+    -fx-background-insets: 0;
+    -fx-background-radius: 9 9 7 7;
+    -fx-border-color: #914607;
+    -fx-border-radius: 9 9 7 7;
+    -fx-border-width: 1;
+    -fx-padding: 0.72em 0.85em 0.8em 0.85em;
+}
+
+.titled-pane:expanded>.title {
+    -fx-background-radius: 9 9 0 0;
+    -fx-border-radius: 9 9 0 0;
+}
+
+.titled-pane>.title>.arrow-button .arrow {
+    -fx-background-color: #663009;
+}
+
+.titled-pane>.content {
+    -fx-background-color: #fff2d8;
+    -fx-background-insets: 0;
+    -fx-padding: 0.7em;
+}
+
+.text-field,
+.text-area,
+.table-view {
+    -fx-background-color: #fff1d4;
+    -fx-border-color: #a85414;
+    -fx-border-radius: 5;
+    -fx-background-radius: 5;
+}
+
+.text-area .content {
+    -fx-background-color: #fff0d1;
+    -fx-background-radius: 4;
+}
+
+.scroll-bar {
+    -fx-background-color: transparent;
+    -fx-padding: 2;
+}
+
+.scroll-bar .track {
+    -fx-background-color: #ffe0a3;
+    -fx-background-radius: 5;
+}
+
+.scroll-bar .thumb {
+    -fx-background-color: #ffc85d;
+    -fx-background-insets: 0;
+    -fx-background-radius: 5;
+    -fx-border-color: #d96b12;
+    -fx-border-radius: 5;
+}
+
+.scroll-bar .thumb:hover {
+    -fx-background-color: #f28a27;
+}
+
+.scroll-bar .thumb:pressed {
+    -fx-background-color: #d96b12;
+}
+
+.scroll-bar .increment-button,
+.scroll-bar .decrement-button {
+    -fx-background-color: #ffc45a;
+    -fx-background-radius: 4;
+}
+
+.scroll-bar .increment-arrow,
+.scroll-bar .decrement-arrow {
+    -fx-background-color: #663009;
+}
+
+.toggle-switch .thumb-area {
+    -fx-background-color: linear-gradient(to bottom, #fffaf0, #ffdf9e);
+    -fx-background-insets: 0;
+    -fx-background-radius: 12;
+    -fx-border-color: #9a4d0d;
+    -fx-border-radius: 12;
+}
+
+.toggle-switch:selected .thumb-area {
+    -fx-background-color: linear-gradient(to bottom, #ffcf6c, #dd7015);
+}
+
+.toggle-switch .thumb {
+    -fx-background-color: linear-gradient(to bottom, #fffdf7, #ffe3a9);
+    -fx-background-insets: 0;
+    -fx-background-radius: 10;
+    -fx-border-color: #b45c13;
+    -fx-border-radius: 10;
+    -fx-effect: dropshadow(gaussian, rgba(89, 39, 5, 0.38), 2, 0, 0, 1);
+}
+
+.toggle-switch:selected .thumb {
+    -fx-background-color: linear-gradient(to bottom, #fff7df, #ffc75e);
+}
+
+.toggle-switch:focused .thumb-area {
+    -fx-border-color: #6f2f00, #fff2ce;
+    -fx-border-width: 1, 1;
+    -fx-border-insets: 0, 2;
+    -fx-border-radius: 12, 10;
+}
+
+.toggle-switch:disabled {
+    -fx-opacity: 0.6;
+}
+
+.table-view .column-header-background,
+.table-view .column-header {
+    -fx-background-color: linear-gradient(to bottom, #ffe2a6, #f5aa42);
+}
+
+.table-row-cell:filled:selected,
+.table-row-cell:filled:selected .table-cell {
+    -fx-background-color: #f7b454;
+    -fx-text-fill: #3b1c06;
+}
+
+.status-bar {
+    -fx-background-color: linear-gradient(to bottom, #fff0d1 0%, #ffe2a6 100%);
+    -fx-border-color: #fff0d1;
+    -fx-border-radius: 5;
+    -fx-background-radius: 5;
+    -fx-padding: 0 10;
+}
+
+.status-bar .label {
+    -fx-alignment: center-left;
+}

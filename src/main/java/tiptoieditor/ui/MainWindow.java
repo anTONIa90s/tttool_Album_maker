@@ -40,9 +40,13 @@ import java.util.Locale;
 
 public class MainWindow {
 
-        private static final String STATUS_BASE_STYLE = "-fx-background-color: #f5f5f5;";
-        private static final String STATUS_SUCCESS_STYLE = STATUS_BASE_STYLE + " -fx-text-fill: #2e7d32;";
-        private static final String STATUS_ERROR_STYLE = STATUS_BASE_STYLE + " -fx-text-fill: #b3261e;";
+        // The status bar background is defined by orange-theme.css. Inline styles here
+        // are
+        // intentionally limited to state-specific text colours so they do not override
+        // it.
+        private static final String STATUS_BASE_STYLE = "";
+        private static final String STATUS_SUCCESS_STYLE = "-fx-text-fill: #2e7d32;";
+        private static final String STATUS_ERROR_STYLE = "-fx-text-fill: #b3261e;";
 
         private TextArea outputArea;
         private StatusBar workflowStatusBar;
@@ -214,6 +218,9 @@ public class MainWindow {
                                 listGmeProductIdsPane);
 
                 workflowStatusBar = new StatusBar();
+                workflowStatusBar.setMinHeight(40);
+                workflowStatusBar.setPrefHeight(40);
+                workflowStatusBar.setMaxHeight(40);
                 workflowStatusBar.setProgress(0);
                 workflowStatusBar.setText("");
                 workflowStatusBar.setStyle(STATUS_BASE_STYLE);
@@ -251,6 +258,7 @@ public class MainWindow {
                 }));
 
                 Scene scene = new Scene(root, 500, 600);
+                scene.getStylesheets().add(MainWindow.class.getResource("orange-theme.css").toExternalForm());
                 stage.setTitle("TTTool Album Creator");
                 stage.setScene(scene);
                 stage.show();
