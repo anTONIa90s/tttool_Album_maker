@@ -20,6 +20,7 @@ public class RowListGmeProductIds {
     private final Label selectedFolderLabel;
     private final TttoolService tttoolService;
     private final Consumer<String> logger;
+    private final Consumer<String> statusUpdater;
     private final ObservableList<ProductIdTableRow> productIdRows;
     private final ProgressIndicator spinner;
     private final WorkflowTaskManager taskManager;
@@ -28,12 +29,13 @@ public class RowListGmeProductIds {
     public RowListGmeProductIds(Stage stage, Button selectFolderButton, Label selectedFolderLabel,
                                 Button listProductIdsButton, ProgressIndicator spinner, TttoolService tttoolService,
                                 ObservableList<ProductIdTableRow> productIdRows, Consumer<String> logger,
-                                WorkflowTaskManager taskManager) {
+                                Consumer<String> statusUpdater, WorkflowTaskManager taskManager) {
         this.selectedFolderLabel = selectedFolderLabel;
         this.tttoolService = tttoolService;
         this.productIdRows = productIdRows;
         this.spinner = spinner;
         this.logger = logger;
+        this.statusUpdater = statusUpdater;
         this.taskManager = taskManager;
         selectFolderButton.setOnAction(event -> selectFolder(stage));
         listProductIdsButton.setOnAction(event -> listProductIds());
@@ -51,11 +53,13 @@ public class RowListGmeProductIds {
     private void listProductIds() {
         if (selectedFolder == null) {
             logger.accept("Please select a folder containing GME files first.");
+            statusUpdater.accept("Please select a folder containing GME files first.");
             return;
         }
 
         Path folder = selectedFolder.toPath();
         logger.accept("Scanning GME files in: " + folder.toAbsolutePath());
+        statusUpdater.accept("Listing GME product IDs...");
         productIdRows.clear();
         spinner.setVisible(true);
         taskManager.start("tttool-gme-product-ids", () -> {
@@ -64,6 +68,7 @@ public class RowListGmeProductIds {
                 List<ProductIdTableRow> tableRows = new ArrayList<>();
                 if (results.isEmpty()) {
                     logger.accept("No GME files found.");
+                    statusUpdater.accept("Listed GME product IDs. Done!");
                     return;
                 }
 
@@ -78,11 +83,14 @@ public class RowListGmeProductIds {
                 }
                 Platform.runLater(() -> productIdRows.setAll(tableRows));
                 logger.accept("Listed product IDs for " + results.size() + " GME file(s).");
+                statusUpdater.accept("Listed GME product IDs. Done!");
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
                 logger.accept("Product ID scan was interrupted.");
+                statusUpdater.accept("Product ID scan cancelled.");
             } catch (Exception e) {
                 logger.accept("Could not list GME product IDs: " + e.getMessage());
+                statusUpdater.accept("GME product ID listing failed.");
             } finally {
                 Platform.runLater(() -> spinner.setVisible(false));
             }

@@ -29,17 +29,21 @@ import service.tonie.TonieAudioExportService;
 import service.tonie.TonieExportDestinationService;
 import service.tttool.TttoolService;
 import service.workflow.AlbumFolderWorkflowResolver;
+import org.controlsfx.control.StatusBar;
 import org.controlsfx.control.ToggleSwitch;
 import org.controlsfx.validation.ValidationSupport;
 import org.controlsfx.validation.Validator;
 
 import java.io.File;
+import java.util.Locale;
 
 public class MainWindow {
 
+        private static final String STATUS_SUCCESS_STYLE = "-fx-text-fill: #2e7d32;";
+        private static final String STATUS_ERROR_STYLE = "-fx-text-fill: #b3261e;";
+
         private TextArea outputArea;
-        private Label workflowStatusLabel;
-        private ProgressIndicator workflowStatusSpinner;
+        private StatusBar workflowStatusBar;
 
         private TextField productNameField;
         private TextField productIdField;
@@ -170,7 +174,7 @@ public class MainWindow {
                 });
                 new RowListGmeProductIds(stage, selectGmeFolderButton, selectedGmeFolderLabel,
                                 listGmeProductIdsButton, listGmeProductIdsSpinner, tttoolService, productIdRows,
-                                this::log, taskManager);
+                                this::log, this::setWorkflowStatus, taskManager);
 
                 ExpandableSubActions exportToniePane = new ExpandableSubActions(
                                 "Only export Tonie audio", selectTonieFileButton, selectedTonieFileLabel,
@@ -194,15 +198,9 @@ public class MainWindow {
                                 createOidTablePane,
                                 listGmeProductIdsPane);
 
-                workflowStatusLabel = new Label();
-                workflowStatusLabel.setMinHeight(20);
-                workflowStatusSpinner = new ProgressIndicator();
-                workflowStatusSpinner.setPrefSize(16, 16);
-                workflowStatusSpinner.setMaxSize(16, 16);
-                workflowStatusSpinner.setVisible(false);
-                workflowStatusSpinner.setManaged(false);
-                HBox workflowStatusRow = new HBox(6, workflowStatusSpinner, workflowStatusLabel);
-                VBox buttonBox = new VBox(10, rowInput, runRow, workflowPanes, workflowStatusRow);
+                workflowStatusBar = new StatusBar();
+                workflowStatusBar.setProgress(0);
+                VBox buttonBox = new VBox(10, rowInput, runRow, workflowPanes, workflowStatusBar);
 
                 outputArea = new TextArea();
                 outputArea.setEditable(false);
@@ -247,6 +245,7 @@ public class MainWindow {
                 File selectedFolder = rowConvertAudio.getSelectedAudioFolder();
                 if (selectedFolder == null) {
                         log("Please select a folder first.");
+                        setWorkflowStatus("Please select a folder first.");
                         return;
                 }
 
@@ -254,6 +253,7 @@ public class MainWindow {
                 if (requiresProductId(resolution) && validationSupport.isInvalid()) {
                         validationSupport.initInitialDecoration();
                         log("Please enter a valid product ID.");
+                        setWorkflowStatus("Please enter a valid product ID.");
                         return;
                 }
                 switch (resolution.workflow()) {
@@ -264,6 +264,7 @@ public class MainWindow {
                                                         resolution.tonieFile(), getAlbumName());
                                 } catch (java.io.IOException e) {
                                         log("Could not create Tonie export folder: " + e.getMessage());
+                                        setWorkflowStatus("Tonie audio export failed.");
                                         return;
                                 }
                                 rowExportTonieAudio.runToolExportAudio(resolution.tonieFile(), exportFolder,
@@ -278,8 +279,11 @@ public class MainWindow {
                                         .runToolCopyAndConvert(albumWorkflowContinuation::continueFromAudioFolder);
                         case EXISTING_ALBUM -> albumWorkflowContinuation.continueFromExistingAlbum(selectedFolder,
                                         resolution.yamlFile());
-                        case UNSUPPORTED ->
-                                log("Selected folder contains no Tonie file, MP3/OGG files, or audio directory.");
+                        case UNSUPPORTED -> {
+                                String logMessage = "Selected folder contains no Tonie file, MP3/OGG files, or audio directory.";
+                                log(logMessage);
+                                setWorkflowStatus("Could not run workflow: " + logMessage);
+                        }
                 }
         }
 
@@ -368,14 +372,30 @@ public class MainWindow {
         private void setWorkflowStatus(String message) {
                 Runnable updateStatus = () -> {
                         boolean isRunning = message != null && message.endsWith("...");
-                        workflowStatusSpinner.setVisible(isRunning);
-                        workflowStatusSpinner.setManaged(isRunning);
-                        workflowStatusLabel.setText(message);
+                        workflowStatusBar.setProgress(isRunning ? -1 : 0);
+                        workflowStatusBar.setText(message == null ? "" : message);
+                        workflowStatusBar.setStyle(statusStyle(message, isRunning));
                 };
                 if (javafx.application.Platform.isFxApplicationThread()) {
                         updateStatus.run();
                 } else {
                         javafx.application.Platform.runLater(updateStatus);
                 }
+        }
+
+        private static String statusStyle(String message, boolean isRunning) {
+                if (isRunning || message == null) {
+                        return "";
+                }
+
+                String normalizedMessage = message.toLowerCase(Locale.ROOT);
+                if (normalizedMessage.contains("failed")
+                                || normalizedMessage.contains("could not")
+                                || normalizedMessage.contains("please ")
+                                || normalizedMessage.contains("cancelled")
+                                || normalizedMessage.contains("skipped")) {
+                        return STATUS_ERROR_STYLE;
+                }
+                return normalizedMessage.contains("done!") ? STATUS_SUCCESS_STYLE : "";
         }
 }
