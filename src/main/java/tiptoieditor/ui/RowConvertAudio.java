@@ -58,8 +58,14 @@ public class RowConvertAudio {
     }
 
     public void runToolCopyAndConvert(Consumer<File> onComplete) {
+        runToolCopyAndConvert(onComplete, null);
+    }
+
+    /** Prepares source audio and reports a failed workflow step to {@code onFailure}. */
+    public void runToolCopyAndConvert(Consumer<File> onComplete, Consumer<String> onFailure) {
         if (selectedAudioFolder == null) {
             logger.accept("Please select a folder first.");
+            notifyFailure(onFailure, "Please select a folder first.");
             return;
         }
 
@@ -76,13 +82,15 @@ public class RowConvertAudio {
                 if (Thread.currentThread().isInterrupted()) {
                     logger.accept(cancelText);
                     statusUpdater.accept(cancelText);
+                    notifyFailure(onFailure, cancelText);
                     return;
                 }
                 logger.accept("Audio copied to: " + audioFolder.getAbsolutePath());
-                processAudioFolder(audioFolder, onComplete);
+                processAudioFolder(audioFolder, onComplete, onFailure);
             } catch (Exception e) {
                 logger.accept("Could not prepare audio: " + e.getMessage());
                 statusUpdater.accept("Audio preparation failed.");
+                notifyFailure(onFailure, "Audio preparation failed.");
             }
         });
     }
@@ -93,7 +101,7 @@ public class RowConvertAudio {
      */
     public void runToolProcessAudio(File audioFolder, Consumer<File> onComplete) {
         statusUpdater.accept("Prepping audio fiiles...");
-        taskManager.start("audio-process", () -> processAudioFolder(audioFolder, onComplete));
+        taskManager.start("audio-process", () -> processAudioFolder(audioFolder, onComplete, null));
     }
 
     /**
@@ -101,6 +109,12 @@ public class RowConvertAudio {
      * it.
      */
     public void runToolCopyAndConvertForExistingAlbum(File albumFolder, Consumer<File> onComplete) {
+        runToolCopyAndConvertForExistingAlbum(albumFolder, onComplete, null);
+    }
+
+    /** Copies an existing album's audio and reports a failed workflow step to {@code onFailure}. */
+    public void runToolCopyAndConvertForExistingAlbum(File albumFolder, Consumer<File> onComplete,
+            Consumer<String> onFailure) {
         statusUpdater.accept("Prepping audio fiiles...");
         taskManager.start("audio-convert", () -> {
             try {
@@ -108,30 +122,34 @@ public class RowConvertAudio {
                 if (Thread.currentThread().isInterrupted()) {
                     logger.accept(cancelText);
                     statusUpdater.accept(cancelText);
+                    notifyFailure(onFailure, cancelText);
                     return;
                 }
                 logger.accept("Audio copied to: " + audioFolder.getAbsolutePath());
-                processAudioFolder(audioFolder, onComplete);
+                processAudioFolder(audioFolder, onComplete, onFailure);
             } catch (Exception e) {
                 logger.accept("Could not prepare audio: " + e.getMessage());
                 statusUpdater.accept("Audio preparation failed.");
+                notifyFailure(onFailure, "Audio preparation failed.");
             }
         });
     }
 
-    private void processAudioFolder(File audioFolder, Consumer<File> onComplete) {
+    private void processAudioFolder(File audioFolder, Consumer<File> onComplete, Consumer<String> onFailure) {
         logger.accept("Processing audio...");
         try {
             audioConvertService.processFolder(audioFolder);
         } catch (Exception e) {
             logger.accept("Could not prepare audio: " + e.getMessage());
             statusUpdater.accept("Audio preparation failed.");
+            notifyFailure(onFailure, "Audio preparation failed.");
             return;
         }
 
         if (Thread.currentThread().isInterrupted()) {
             logger.accept(cancelText);
             statusUpdater.accept(cancelText);
+            notifyFailure(onFailure, cancelText);
             return;
         }
 
@@ -166,6 +184,12 @@ public class RowConvertAudio {
      */
     public void setOnAudioPrepared(Consumer<File> audioPreparedConsumer) {
         this.audioPreparedConsumer = audioPreparedConsumer;
+    }
+
+    private static void notifyFailure(Consumer<String> onFailure, String message) {
+        if (onFailure != null) {
+            Platform.runLater(() -> onFailure.accept(message));
+        }
     }
 
 }

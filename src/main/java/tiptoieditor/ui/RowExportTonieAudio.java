@@ -100,11 +100,19 @@ public class RowExportTonieAudio {
      * thread.
      */
     public void runToolExportAudio(File inputFile, File outputDirectory, Consumer<File> onComplete) {
+        runToolExportAudio(inputFile, outputDirectory, onComplete, null);
+    }
+
+    /** Exports Tonie audio and reports a failed workflow step to {@code onFailure}. */
+    public void runToolExportAudio(File inputFile, File outputDirectory, Consumer<File> onComplete,
+            Consumer<String> onFailure) {
         if (inputFile == null || outputDirectory == null) {
             logger.accept("Please select a Tonie file and an output folder first.");
+            notifyFailure(onFailure, "Please select a Tonie file and an output folder first.");
             return;
         }
         if (!confirmExport()) {
+            notifyFailure(onFailure, "Tonie audio export cancelled.");
             return;
         }
 
@@ -117,6 +125,7 @@ public class RowExportTonieAudio {
                 if (Thread.currentThread().isInterrupted()) {
                     logger.accept(cancelText);
                     statusUpdater.accept(cancelText);
+                    notifyFailure(onFailure, cancelText);
                     return;
                 }
                 for (TonieAudioExportService.ExportResult result : results) {
@@ -130,6 +139,7 @@ public class RowExportTonieAudio {
             } catch (InterruptedIOException e) {
                 logger.accept(cancelText);
                 statusUpdater.accept(cancelText);
+                notifyFailure(onFailure, cancelText);
             } catch (FileAlreadyExistsException e) {
                 logger.accept(
                         "Export skipped: the output file already exists. Choose another folder or remove it first.");
@@ -140,8 +150,15 @@ public class RowExportTonieAudio {
             } catch (Exception e) {
                 logger.accept("Could not export Tonie audio: " + e.getMessage());
                 statusUpdater.accept("Tonie audio export failed.");
+                notifyFailure(onFailure, "Tonie audio export failed.");
             }
         });
+    }
+
+    private static void notifyFailure(Consumer<String> onFailure, String message) {
+        if (onFailure != null) {
+            Platform.runLater(() -> onFailure.accept(message));
+        }
     }
 
     private boolean confirmExport() {

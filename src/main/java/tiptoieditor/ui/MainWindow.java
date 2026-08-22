@@ -10,11 +10,14 @@ import javafx.scene.control.Accordion;
 import javafx.scene.control.Button;
 import javafx.scene.control.Label;
 import javafx.scene.control.ProgressIndicator;
+import javafx.scene.control.ScrollPane;
 import javafx.scene.control.TableColumn;
 import javafx.scene.control.TableView;
 import javafx.scene.control.TextArea;
 import javafx.scene.control.TextField;
 import javafx.scene.control.TextFormatter;
+import javafx.scene.control.ToggleButton;
+import javafx.scene.control.ToggleGroup;
 import javafx.scene.control.TitledPane;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.HBox;
@@ -36,7 +39,15 @@ import org.controlsfx.validation.ValidationSupport;
 import org.controlsfx.validation.Validator;
 
 import java.io.File;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.StandardCopyOption;
+import java.util.Arrays;
+import java.util.Comparator;
+import java.util.List;
 import java.util.Locale;
+import java.util.function.Consumer;
+import java.util.stream.Stream;
 
 public class MainWindow {
 
@@ -50,6 +61,9 @@ public class MainWindow {
 
         private TextArea outputArea;
         private StatusBar workflowStatusBar;
+        private boolean manyDirectoriesMode;
+        private boolean manyDirectoriesCancelled;
+        private VBox manyDirectoryResults;
 
         private TextField productNameField;
         private TextField productIdField;
@@ -105,10 +119,11 @@ public class MainWindow {
                 VBox productIdControl = new VBox(4, productIdLabel, productIdField);
                 VBox appendProductIdControl = new VBox(4, new Label("append"), appendProductIdToggle);
                 appendProductIdControl.setAlignment(Pos.BOTTOM_LEFT);
+                HBox productDetailsGroup = new HBox(10, productIdControl, appendProductIdControl);
+                productDetailsGroup.setAlignment(Pos.BOTTOM_RIGHT);
                 VBox selectDirectoryControl = new VBox(selectDirectoryButton);
                 selectDirectoryControl.setAlignment(Pos.BOTTOM_LEFT);
-                HBox inputControlsRow = new HBox(10, selectDirectoryControl, productNameControl, productIdControl,
-                                appendProductIdControl);
+                HBox inputControlsRow = new HBox(10, selectDirectoryControl, productNameControl, productDetailsGroup);
                 inputControlsRow.setMaxWidth(Double.MAX_VALUE);
                 HBox.setHgrow(productNameControl, Priority.ALWAYS);
                 productNameControl.setMaxWidth(Double.MAX_VALUE);
@@ -216,6 +231,8 @@ public class MainWindow {
                 Accordion workflowPanes = new Accordion(exportToniePane, prepAudioPane, createYamlPane, createGmePane,
                                 createOidTablePane,
                                 listGmeProductIdsPane);
+                List<TitledPane> singleDirectoryPanes = List.of(exportToniePane, prepAudioPane, createYamlPane,
+                                createGmePane, createOidTablePane, listGmeProductIdsPane);
 
                 workflowStatusBar = new StatusBar();
                 workflowStatusBar.setMinHeight(40);
@@ -224,7 +241,35 @@ public class MainWindow {
                 workflowStatusBar.setProgress(0);
                 workflowStatusBar.setText("");
                 workflowStatusBar.setStyle(STATUS_BASE_STYLE);
-                VBox buttonBox = new VBox(10, rowInput, runRow, workflowStatusBar, workflowPanes);
+                ToggleButton singleDirectoryButton = new ToggleButton("Single directory");
+                ToggleButton manyDirectoriesButton = new ToggleButton("Many directories");
+                singleDirectoryButton.getStyleClass().addAll("directory-mode-toggle", "directory-mode-toggle-left");
+                manyDirectoriesButton.getStyleClass().addAll("directory-mode-toggle", "directory-mode-toggle-right");
+                ToggleGroup directoryModeGroup = new ToggleGroup();
+                singleDirectoryButton.setToggleGroup(directoryModeGroup);
+                manyDirectoriesButton.setToggleGroup(directoryModeGroup);
+                singleDirectoryButton.setSelected(true);
+                HBox directoryModeButtons = new HBox(0, singleDirectoryButton, manyDirectoriesButton);
+                directoryModeButtons.getStyleClass().add("directory-mode-tabs");
+                directoryModeButtons.setMaxWidth(Double.MAX_VALUE);
+                singleDirectoryButton.setMaxWidth(Double.MAX_VALUE);
+                manyDirectoriesButton.setMaxWidth(Double.MAX_VALUE);
+                HBox.setHgrow(singleDirectoryButton, Priority.ALWAYS);
+                HBox.setHgrow(manyDirectoriesButton, Priority.ALWAYS);
+                manyDirectoryResults = new VBox(4);
+                directoryModeGroup.selectedToggleProperty().addListener((observable, oldValue, selectedToggle) -> {
+                        if (selectedToggle == null) {
+                                singleDirectoryButton.setSelected(true);
+                                return;
+                        }
+                        boolean useManyDirectories = selectedToggle == manyDirectoriesButton;
+                        updateDirectoryMode(useManyDirectories, productNameControl, productIdLabel,
+                                        selectDirectoryControl,
+                                        productDetailsGroup, runButton, workflowPanes, singleDirectoryPanes,
+                                        listGmeProductIdsPane);
+                });
+                VBox buttonBox = new VBox(10, directoryModeButtons, rowInput, runRow, workflowStatusBar, workflowPanes,
+                                manyDirectoryResults);
 
                 outputArea = new TextArea();
                 outputArea.setEditable(false);
@@ -235,20 +280,13 @@ public class MainWindow {
 
                 BorderPane root = new BorderPane();
                 root.setPadding(new Insets(10));
-                VBox topContent = new VBox(10, title, buttonBox);
-                root.setTop(topContent);
-                root.setBottom(logPane);
-                BorderPane.setMargin(topContent, new Insets(0, 0, 10, 0));
-
-                logPane.expandedProperty().addListener((observable, wasExpanded, isExpanded) -> {
-                        if (isExpanded) {
-                                root.setBottom(null);
-                                root.setCenter(logPane);
-                        } else {
-                                root.setCenter(null);
-                                root.setBottom(logPane);
-                        }
-                });
+                VBox topContent = new VBox(10, title, buttonBox, logPane);
+                ScrollPane contentScrollPane = new ScrollPane(topContent);
+                contentScrollPane.setFitToWidth(true);
+                contentScrollPane.setHbarPolicy(ScrollPane.ScrollBarPolicy.NEVER);
+                contentScrollPane.setVbarPolicy(ScrollPane.ScrollBarPolicy.AS_NEEDED);
+                contentScrollPane.setStyle("-fx-background-color: transparent; -fx-background: transparent;");
+                root.setCenter(contentScrollPane);
 
                 runButton.setOnAction(e -> runTool());
                 cancelButton.setOnAction(e -> cancelRunningTasks());
@@ -268,6 +306,10 @@ public class MainWindow {
         }
 
         private void runTool() {
+                if (manyDirectoriesMode) {
+                        runToolForManyDirectories();
+                        return;
+                }
                 File selectedFolder = rowConvertAudio.getSelectedAudioFolder();
                 if (selectedFolder == null) {
                         log("Please select a folder first.");
@@ -311,6 +353,172 @@ public class MainWindow {
                                 setWorkflowStatus("Could not run workflow: " + logMessage);
                         }
                 }
+        }
+
+        private void updateDirectoryMode(boolean useManyDirectories, VBox productNameControl, Label productIdLabel,
+                        VBox selectDirectoryControl, HBox productDetailsGroup, Button runButton,
+                        Accordion workflowPanes, List<TitledPane> singleDirectoryPanes,
+                        TitledPane listGmeProductIdsPane) {
+                manyDirectoriesMode = useManyDirectories;
+                productNameControl.setVisible(!useManyDirectories);
+                productNameControl.setManaged(!useManyDirectories);
+                productIdLabel.setText(useManyDirectories ? "Starting Product ID" : "Product ID");
+                runButton.setText(useManyDirectories ? "Run tttool over many directories" : "Run tttool");
+                HBox.setHgrow(selectDirectoryControl, useManyDirectories ? Priority.ALWAYS : Priority.NEVER);
+                productDetailsGroup.setAlignment(Pos.BOTTOM_RIGHT);
+
+                workflowPanes.getPanes().setAll(useManyDirectories
+                                ? List.of(listGmeProductIdsPane)
+                                : singleDirectoryPanes);
+                workflowPanes.setExpandedPane(null);
+                if (!useManyDirectories) {
+                        manyDirectoryResults.getChildren().clear();
+                }
+        }
+
+        private void runToolForManyDirectories() {
+                File mainDirectory = rowConvertAudio.getSelectedAudioFolder();
+                if (mainDirectory == null) {
+                        log("Please select a folder first.");
+                        setWorkflowStatus("Please select a folder first.");
+                        return;
+                }
+                if (validationSupport.isInvalid()) {
+                        validationSupport.initInitialDecoration();
+                        log("Please enter a valid starting product ID.");
+                        setWorkflowStatus("Please enter a valid starting product ID.");
+                        return;
+                }
+
+                File[] children = mainDirectory.listFiles(File::isDirectory);
+                if (children == null || children.length == 0) {
+                        log("The selected directory contains no subdirectories.");
+                        setWorkflowStatus("The selected directory contains no subdirectories.");
+                        return;
+                }
+                List<File> folders = Arrays.stream(children)
+                                .sorted(Comparator.comparing(File::getName, String.CASE_INSENSITIVE_ORDER))
+                                .toList();
+                int startingProductId = Integer.parseInt(productIdField.getText());
+                if ((long) startingProductId + folders.size() - 1 > Integer.MAX_VALUE) {
+                        log("The product ID range exceeds " + Integer.MAX_VALUE + ".");
+                        setWorkflowStatus("The product ID range is too large.");
+                        return;
+                }
+
+                manyDirectoryResults.getChildren().clear();
+                manyDirectoriesCancelled = false;
+                runNextDirectory(mainDirectory, folders, 0, startingProductId);
+        }
+
+        private void runNextDirectory(File mainDirectory, List<File> folders, int folderIndex, int productId) {
+                if (manyDirectoriesCancelled) {
+                        setWorkflowStatus("Many-directories workflow cancelled.");
+                        return;
+                }
+                if (folderIndex >= folders.size()) {
+                        rowConvertAudio.setSelectedAudioFolder(mainDirectory);
+                        setWorkflowStatus("Done! All directories processed.");
+                        return;
+                }
+
+                File folder = folders.get(folderIndex);
+                productIdField.setText(Integer.toString(productId));
+                rowConvertAudio.setSelectedAudioFolder(folder);
+                AlbumFolderWorkflowResolver.WorkflowResolution resolution = workflowResolver.resolve(folder);
+                if (resolution.workflow() == AlbumFolderWorkflowResolver.Workflow.UNSUPPORTED) {
+                        String message = "Skipped " + folder.getName()
+                                        + ": no Tonie file, MP3/OGG files, or audio directory found.";
+                        log(message);
+                        setWorkflowStatus(message);
+                        runNextDirectory(mainDirectory, folders, folderIndex + 1, productId + 1);
+                        return;
+                }
+
+                String albumName = getAlbumName().isBlank() ? "tttoolAlbum" : getAlbumName();
+                runWorkflowForDirectory(folder, resolution, () -> copyGmeFilesAndContinue(mainDirectory, folder,
+                                albumName, productId, folders, folderIndex),
+                                failure -> continueAfterDirectoryFailure(mainDirectory, folders, folderIndex, productId,
+                                                folder, failure));
+        }
+
+        private void runWorkflowForDirectory(File folder, AlbumFolderWorkflowResolver.WorkflowResolution resolution,
+                        Runnable onComplete, Consumer<String> onFailure) {
+                switch (resolution.workflow()) {
+                        case EXPORT_TONIE_AUDIO -> {
+                                File exportFolder;
+                                try {
+                                        exportFolder = tonieExportDestinationService.createExportFolder(
+                                                        resolution.tonieFile(), getAlbumName());
+                                } catch (IOException e) {
+                                        log("Could not create Tonie export folder: " + e.getMessage());
+                                        setWorkflowStatus("Tonie audio export failed.");
+                                        onFailure.accept("Tonie audio export failed.");
+                                        return;
+                                }
+                                rowExportTonieAudio.runToolExportAudio(resolution.tonieFile(), exportFolder,
+                                                exportedAlbumFolder -> {
+                                                        rowConvertAudio.setSelectedAudioFolder(exportedAlbumFolder);
+                                                        rowConvertAudio.runToolCopyAndConvertForExistingAlbum(
+                                                                        exportedAlbumFolder,
+                                                                        audioFolder -> albumWorkflowContinuation
+                                                                                        .continueFromAudioFolder(
+                                                                                                        audioFolder,
+                                                                                                        onComplete,
+                                                                                                        onFailure),
+                                                                        onFailure);
+                                                }, onFailure);
+                        }
+                        case PROCESS_AUDIO -> rowConvertAudio.runToolCopyAndConvert(
+                                        audioFolder -> albumWorkflowContinuation.continueFromAudioFolder(audioFolder,
+                                                        onComplete, onFailure),
+                                        onFailure);
+                        case EXISTING_ALBUM -> albumWorkflowContinuation.continueFromExistingAlbum(folder,
+                                        resolution.yamlFile(), onComplete, onFailure);
+                        case UNSUPPORTED -> throw new IllegalArgumentException("Unsupported folder workflow");
+                }
+        }
+
+        private void copyGmeFilesAndContinue(File mainDirectory, File sourceDirectory, String albumName, int productId,
+                        List<File> folders, int folderIndex) {
+                taskManager.start("copy-gme-files", () -> {
+                        try (Stream<java.nio.file.Path> files = Files.walk(sourceDirectory.toPath())) {
+                                List<java.nio.file.Path> gmeFiles = files
+                                                .filter(Files::isRegularFile)
+                                                .filter(path -> path.getFileName().toString().toLowerCase(Locale.ROOT)
+                                                                .endsWith(".gme"))
+                                                .toList();
+                                for (java.nio.file.Path gmeFile : gmeFiles) {
+                                        Files.copy(gmeFile, mainDirectory.toPath().resolve(gmeFile.getFileName()),
+                                                        StandardCopyOption.REPLACE_EXISTING);
+                                }
+                                javafx.application.Platform.runLater(() -> {
+                                        Label success = new Label("Done! Created " + albumName + " with Product ID "
+                                                        + productId);
+                                        success.setStyle(STATUS_SUCCESS_STYLE);
+                                        success.setWrapText(true);
+                                        manyDirectoryResults.getChildren().add(success);
+                                        setWorkflowStatus(success.getText());
+                                        runNextDirectory(mainDirectory, folders, folderIndex + 1, productId + 1);
+                                });
+                        } catch (IOException e) {
+                                log("Could not copy GME file(s) from " + sourceDirectory.getName() + ": "
+                                                + e.getMessage());
+                                setWorkflowStatus("Could not copy GME file(s).");
+                                javafx.application.Platform.runLater(() -> continueAfterDirectoryFailure(mainDirectory,
+                                                folders, folderIndex, productId, sourceDirectory,
+                                                "Could not copy GME file(s)."));
+                        }
+                });
+        }
+
+        private void continueAfterDirectoryFailure(File mainDirectory, List<File> folders, int folderIndex,
+                        int productId, File folder, String failure) {
+                Label result = new Label("Failed " + folder.getName() + ": " + failure);
+                result.setStyle(STATUS_ERROR_STYLE);
+                result.setWrapText(true);
+                manyDirectoryResults.getChildren().add(result);
+                runNextDirectory(mainDirectory, folders, folderIndex + 1, productId + 1);
         }
 
         private TableView<RowListGmeProductIds.ProductIdTableRow> createProductIdTable(
@@ -391,6 +599,9 @@ public class MainWindow {
         }
 
         private void cancelRunningTasks() {
+                if (manyDirectoriesMode) {
+                        manyDirectoriesCancelled = true;
+                }
                 taskManager.cancelAll();
                 log("Cancellation requested.");
         }

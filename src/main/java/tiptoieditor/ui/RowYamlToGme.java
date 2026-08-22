@@ -68,8 +68,14 @@ public class RowYamlToGme {
      * JavaFX thread after a successful assembly.
      */
     public void runToolCreateGmeFromYaml(Consumer<File> onComplete) {
+        runToolCreateGmeFromYaml(onComplete, null);
+    }
+
+    /** Creates a GME and reports a failed workflow step to {@code onFailure}. */
+    public void runToolCreateGmeFromYaml(Consumer<File> onComplete, Consumer<String> onFailure) {
         if (selectedYamlFile == null) {
             logger.accept("Please select a YAML file first.");
+            notifyFailure(onFailure, "Please select a YAML file first.");
             return;
         }
 
@@ -95,14 +101,26 @@ public class RowYamlToGme {
                 Platform.runLater(() -> {
                     logger.accept(cancelText);
                     statusUpdater.accept(cancelText);
+                    if (onFailure != null) {
+                        onFailure.accept(cancelText);
+                    }
                 });
             } catch (Exception e) {
                 Platform.runLater(() -> {
                     logger.accept("Could not create GME: " + e.getMessage());
                     statusUpdater.accept("GME creation failed.");
+                    if (onFailure != null) {
+                        onFailure.accept("GME creation failed.");
+                    }
                 });
             }
         });
+    }
+
+    private static void notifyFailure(Consumer<String> onFailure, String message) {
+        if (onFailure != null) {
+            Platform.runLater(() -> onFailure.accept(message));
+        }
     }
 
     public void setSelectedYamlFile(File selectedYamlFile) {

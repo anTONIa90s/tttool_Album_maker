@@ -66,14 +66,21 @@ public class RowCreateYaml {
      * thread.
      */
     public void runToolCreateYaml(Consumer<File> onComplete) {
+        runToolCreateYaml(onComplete, null);
+    }
+
+    /** Generates YAML and reports a failed workflow step to {@code onFailure}. */
+    public void runToolCreateYaml(Consumer<File> onComplete, Consumer<String> onFailure) {
         String productIdText = productIdSupplier.get().trim();
         if (productIdText.isEmpty()) {
             logger.accept("Please enter a product ID.");
             statusUpdater.accept("Please enter a product ID.");
+            notifyFailure(onFailure, "Please enter a product ID.");
             return;
         } else if (selectedAlbumFolder == null) {
             logger.accept("Please select a folder first.");
             statusUpdater.accept("Please select a folder first.");
+            notifyFailure(onFailure, "Please select a folder first.");
             return;
         }
 
@@ -83,6 +90,7 @@ public class RowCreateYaml {
         } catch (NumberFormatException e) {
             logger.accept("Please enter a valid product ID.");
             statusUpdater.accept("Please enter a valid product ID.");
+            notifyFailure(onFailure, "Please enter a valid product ID.");
             return;
         }
         File albumFolder = selectedAlbumFolder;
@@ -95,6 +103,7 @@ public class RowCreateYaml {
                 if (Thread.currentThread().isInterrupted()) {
                     logger.accept(cancelText);
                     statusUpdater.accept(cancelText);
+                    notifyFailure(onFailure, cancelText);
                     return;
                 }
                 File yamlFile = generatedFiles.yamlFile().toFile();
@@ -109,7 +118,14 @@ public class RowCreateYaml {
             } catch (Exception e) {
                 logger.accept("Could not create YAML: " + e.getMessage());
                 statusUpdater.accept("YAML creation failed.");
+                notifyFailure(onFailure, "YAML creation failed.");
             }
         });
+    }
+
+    private static void notifyFailure(Consumer<String> onFailure, String message) {
+        if (onFailure != null) {
+            Platform.runLater(() -> onFailure.accept(message));
+        }
     }
 }

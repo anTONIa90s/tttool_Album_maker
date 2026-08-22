@@ -42,6 +42,48 @@
     -fx-effect: none;
 }
 
+/* Segmented mode selector: ToggleButtons styled as tabs, not a TabPane. */
+.directory-mode-tabs {
+    -fx-padding: 2 0 0 0;
+}
+
+.toggle-button.directory-mode-toggle {
+    -fx-background-color: linear-gradient(to bottom, #fff1d4 0%, #ffe5ad 46%, #ffc45a 100%);
+    -fx-background-insets: 0;
+    -fx-border-color: #8d430b;
+    -fx-border-width: 1;
+    -fx-padding: 0.48em 1.25em 0.56em 1.25em;
+    -fx-text-fill: #4a2407;
+    -fx-font-weight: bold;
+}
+
+.toggle-button.directory-mode-toggle-left {
+    -fx-background-radius: 8 0 0 8;
+    -fx-border-radius: 8 0 0 8;
+}
+
+.toggle-button.directory-mode-toggle-right {
+    -fx-background-radius: 0 8 8 0;
+    -fx-border-radius: 0 8 8 0;
+    -fx-border-insets: 0 0 0 -1;
+}
+
+.toggle-button.directory-mode-toggle:hover {
+    -fx-background-color: linear-gradient(to bottom, #fff0c8 0%, #ffd06d 46%, #eb881f 100%);
+}
+
+.toggle-button.directory-mode-toggle:selected {
+    -fx-background-color: linear-gradient(to bottom, #d96b12 0%, #f3a134 100%);
+    -fx-text-fill: #fff8e9;
+    -fx-effect: dropshadow(gaussian, rgba(89, 39, 5, 0.30), 1, 0, 0, 1);
+}
+
+.toggle-button.directory-mode-toggle:focused {
+    -fx-border-color: #713000, #fff1c9;
+    -fx-border-width: 1, 1;
+    -fx-border-insets: 0, 2;
+}
+
 .accordion>.titled-pane,
 .titled-pane {
     -fx-effect: dropshadow(gaussian, rgba(89, 39, 5, 0.34), 2, 0, 0, 2);

@@ -53,8 +53,14 @@ public class RowCreateOidTable {
     }
 
     public void runToolCreateOidTable(Runnable onComplete) {
+        runToolCreateOidTable(onComplete, null);
+    }
+
+    /** Creates the OID table and reports a failed workflow step to {@code onFailure}. */
+    public void runToolCreateOidTable(Runnable onComplete, Consumer<String> onFailure) {
         if (selectedAlbumFolder == null) {
             logger.accept("Please select an album folder first.");
+            notifyFailure(onFailure, "Please select an album folder first.");
             return;
         }
 
@@ -62,6 +68,7 @@ public class RowCreateOidTable {
         if (yamlFile == null) {
             logger.accept("The selected album folder must contain a YAML file.");
             statusUpdater.accept("Could not created OID table. YAML file missing.");
+            notifyFailure(onFailure, "Could not create OID table. YAML file missing.");
             return;
         }
 
@@ -82,14 +89,26 @@ public class RowCreateOidTable {
                 Platform.runLater(() -> {
                     logger.accept("OID table creation cancelled.");
                     statusUpdater.accept("OID table creation cancelled.");
+                    if (onFailure != null) {
+                        onFailure.accept("OID table creation cancelled.");
+                    }
                 });
             } catch (Exception e) {
                 Platform.runLater(() -> {
                     logger.accept("Could not create OID table: " + e.getMessage());
                     statusUpdater.accept("OID table creation failed.");
+                    if (onFailure != null) {
+                        onFailure.accept("OID table creation failed.");
+                    }
                 });
             }
         });
+    }
+
+    private static void notifyFailure(Consumer<String> onFailure, String message) {
+        if (onFailure != null) {
+            Platform.runLater(() -> onFailure.accept(message));
+        }
     }
 
     /** Uses the main album YAML, never its generated codes YAML. */

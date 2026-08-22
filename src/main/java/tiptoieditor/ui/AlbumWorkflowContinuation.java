@@ -37,31 +37,59 @@ public class AlbumWorkflowContinuation {
     }
 
     public void continueFromAudioFolder(File audioFolder) {
+        continueFromAudioFolder(audioFolder, null);
+    }
+
+    /** Continues the prepared-audio workflow and invokes {@code onComplete} after the OID table is created. */
+    public void continueFromAudioFolder(File audioFolder, Runnable onComplete) {
+        continueFromAudioFolder(audioFolder, onComplete, null);
+    }
+
+    /** Continues prepared audio and reports a failed workflow step to {@code onFailure}. */
+    public void continueFromAudioFolder(File audioFolder, Runnable onComplete, Consumer<String> onFailure) {
         File albumFolder = audioFolder.getParentFile();
         rowCreateYaml.setSelectedAlbumFolder(albumFolder);
         logger.accept("Selected album folder: " + albumFolder.getAbsolutePath());
 
         rowCreateYaml.runToolCreateYaml(generatedYamlFile ->
-                rowYamlToGme.runToolCreateGmeFromYaml(assembledYaml -> runOidTableCreation()));
+                rowYamlToGme.runToolCreateGmeFromYaml(assembledYaml -> runOidTableCreation(onComplete, onFailure),
+                        onFailure), onFailure);
     }
 
     public void continueFromExistingAlbum(File albumFolder, File yamlFile) {
+        continueFromExistingAlbum(albumFolder, yamlFile, null);
+    }
+
+    /** Continues an existing album and invokes {@code onComplete} after the OID table is created. */
+    public void continueFromExistingAlbum(File albumFolder, File yamlFile, Runnable onComplete) {
+        continueFromExistingAlbum(albumFolder, yamlFile, onComplete, null);
+    }
+
+    /** Continues an existing album and reports a failed workflow step to {@code onFailure}. */
+    public void continueFromExistingAlbum(File albumFolder, File yamlFile, Runnable onComplete,
+            Consumer<String> onFailure) {
         rowCreateYaml.setSelectedAlbumFolder(albumFolder);
         if (yamlFile != null) {
             rowYamlToGme.setSelectedYamlFile(yamlFile);
             logger.accept("Using existing YAML: " + yamlFile.getAbsolutePath());
-            rowYamlToGme.runToolCreateGmeFromYaml(yaml -> runOidTableCreation());
+            rowYamlToGme.runToolCreateGmeFromYaml(yaml -> runOidTableCreation(onComplete, onFailure), onFailure);
             return;
         }
 
         rowCreateYaml.runToolCreateYaml(generatedYamlFile ->
-                rowYamlToGme.runToolCreateGmeFromYaml(assembledYaml -> runOidTableCreation()));
+                rowYamlToGme.runToolCreateGmeFromYaml(assembledYaml -> runOidTableCreation(onComplete, onFailure),
+                        onFailure), onFailure);
     }
 
-    private void runOidTableCreation() {
+    private void runOidTableCreation(Runnable onComplete, Consumer<String> onFailure) {
         rowCreateOidTable.runToolCreateOidTable(
-                () -> statusUpdater.accept("Done! Album created for "
-                        + productNameSupplier.get().replaceFirst("_album$", "")));
+                () -> {
+                    statusUpdater.accept("Done! Album created for "
+                            + productNameSupplier.get().replaceFirst("_album$", ""));
+                    if (onComplete != null) {
+                        onComplete.run();
+                    }
+                }, onFailure);
     }
 
     /** Synchronizes the sub-workflow controls with the folder selected for the Run workflow. */
