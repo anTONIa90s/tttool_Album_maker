@@ -106,12 +106,21 @@ public class RowExportTonieAudio {
     /** Exports Tonie audio and reports a failed workflow step to {@code onFailure}. */
     public void runToolExportAudio(File inputFile, File outputDirectory, Consumer<File> onComplete,
             Consumer<String> onFailure) {
+        runToolExportAudio(inputFile, outputDirectory, onComplete, onFailure, true);
+    }
+
+    /**
+     * Exports Tonie audio, optionally reusing a legal confirmation that was already
+     * accepted for a batch workflow.
+     */
+    public void runToolExportAudio(File inputFile, File outputDirectory, Consumer<File> onComplete,
+            Consumer<String> onFailure, boolean requireConfirmation) {
         if (inputFile == null || outputDirectory == null) {
             logger.accept("Please select a Tonie file and an output folder first.");
             notifyFailure(onFailure, "Please select a Tonie file and an output folder first.");
             return;
         }
-        if (!confirmExport()) {
+        if (requireConfirmation && !confirmExport()) {
             notifyFailure(onFailure, "Tonie audio export cancelled.");
             return;
         }
@@ -159,6 +168,11 @@ public class RowExportTonieAudio {
         if (onFailure != null) {
             Platform.runLater(() -> onFailure.accept(message));
         }
+    }
+
+    /** Shows the legal notice before a batch that contains one or more Tonie files. */
+    public boolean confirmExportOnce() {
+        return confirmExport();
     }
 
     private boolean confirmExport() {

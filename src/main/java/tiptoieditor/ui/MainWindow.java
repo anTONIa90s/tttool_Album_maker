@@ -280,13 +280,15 @@ public class MainWindow {
 
                 BorderPane root = new BorderPane();
                 root.setPadding(new Insets(10));
-                VBox topContent = new VBox(10, title, buttonBox, logPane);
+                VBox topContent = new VBox(10, title, buttonBox);
                 ScrollPane contentScrollPane = new ScrollPane(topContent);
                 contentScrollPane.setFitToWidth(true);
                 contentScrollPane.setHbarPolicy(ScrollPane.ScrollBarPolicy.NEVER);
                 contentScrollPane.setVbarPolicy(ScrollPane.ScrollBarPolicy.AS_NEEDED);
                 contentScrollPane.setStyle("-fx-background-color: transparent; -fx-background: transparent;");
                 root.setCenter(contentScrollPane);
+                root.setBottom(logPane);
+                BorderPane.setMargin(contentScrollPane, new Insets(0, 0, 10, 0));
 
                 runButton.setOnAction(e -> runTool());
                 cancelButton.setOnAction(e -> cancelRunningTasks());
@@ -399,6 +401,14 @@ public class MainWindow {
                 List<File> folders = Arrays.stream(children)
                                 .sorted(Comparator.comparing(File::getName, String.CASE_INSENSITIVE_ORDER))
                                 .toList();
+                boolean containsTonieFile = folders.stream()
+                                .map(workflowResolver::resolve)
+                                .anyMatch(resolution -> resolution.workflow()
+                                                == AlbumFolderWorkflowResolver.Workflow.EXPORT_TONIE_AUDIO);
+                if (containsTonieFile && !rowExportTonieAudio.confirmExportOnce()) {
+                        setWorkflowStatus("Tonie audio export cancelled.");
+                        return;
+                }
                 int startingProductId = Integer.parseInt(productIdField.getText());
                 if ((long) startingProductId + folders.size() - 1 > Integer.MAX_VALUE) {
                         log("The product ID range exceeds " + Integer.MAX_VALUE + ".");
@@ -467,7 +477,7 @@ public class MainWindow {
                                                                                                         onComplete,
                                                                                                         onFailure),
                                                                         onFailure);
-                                                }, onFailure);
+                                                }, onFailure, false);
                         }
                         case PROCESS_AUDIO -> rowConvertAudio.runToolCopyAndConvert(
                                         audioFolder -> albumWorkflowContinuation.continueFromAudioFolder(audioFolder,
